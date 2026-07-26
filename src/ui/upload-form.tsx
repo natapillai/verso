@@ -100,7 +100,8 @@ export function UploadForm() {
                   : "Added."}
               </span>{" "}
               <code>{document.contentHash.slice(0, 12)}</code>{" "}
-              <span>{describeExtraction(state, document.id)}</span>
+              <span>{describeExtraction(state, document.id)}</span>{" "}
+              <a href={`/review/${document.id}`}>Review</a>
             </li>
           ))}
         </ul>

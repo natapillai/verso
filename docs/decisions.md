@@ -150,3 +150,56 @@ on and the fallback returns eight flagged empty fields. That is still the
 behaviour success criterion 4 asks for. The regexes earn their keep the moment
 any text source exists — a PDF text layer, or a paste — and the alternative was
 either an OCR dependency the spec forbids or deleting logic the spec requires.
+
+## Slice 03, the review screen
+
+**The tether measures against its own SVG, not the containing element.**
+The obvious implementation takes a ref on the split container and measures
+everything relative to it. It does not work: React attaches refs child first, so
+a child's layout effect runs while the parent's ref is still null, and the tether
+never draws until something unrelated re-renders. The SVG is positioned inset-0
+inside the split, so its own rect is the same coordinate space and is guaranteed
+to exist by the time its own effect runs.
+
+**The tether writes to the SVG directly rather than through React state.**
+The line follows the document as it scrolls, so geometry recomputes on every
+scroll frame. Holding it in state would mean a re-render per frame to move two
+shapes. This is the "synchronise with an external system" case effects are for.
+
+**One commit per edit, guarded by a ref.**
+Enter commits a correction, which unmounts the input, which fires blur, which
+commits again. Both requests read the field before either wrote, so a single edit
+produced two correction rows — and invariant 2 exists so that a value change is
+accounted for exactly once. A value counted twice against the model is a number
+the accuracy view gets wrong. The guard is a ref rather than state because it has
+to be read and set synchronously inside one handler.
+
+**The screen focuses its first field on mount.**
+Without it the reviewer lands with focus on the body, outside the key handler,
+and the first Enter goes nowhere until they click a field. That is friction in
+the one path the screen exists for, and it matters most on arrival at the next
+document after a completion, where the rhythm should carry over.
+
+**Confirmations are applied locally before the server answers.**
+The measured path is eight Enters, and waiting on a round trip between them would
+put network latency into the only interaction anyone times. A failed request puts
+the previous status back and says so. The risk accepted: a reviewer can get
+several fields ahead of a server that is refusing, and only finds out at the end.
+
+**Zoom needs `max-width: none`.**
+Tailwind's preflight caps images at 100% of their container, which silently pins
+zoom at fit however many times the control is pressed. Worth recording because
+the symptom — a button that appears to do nothing — looks like a state bug and is
+a stylesheet default.
+
+**The correction log is read through the field row.**
+Success criterion 3 asks that a correction, the original model value, and the
+actor all survive a reload. A row that says "was GB556201447 · nata" answers that
+where the reviewer already is. A separate log panel would be a second place to
+look for something only ever wanted in context.
+
+**A single reviewer, named by environment variable.**
+`specs/product.md` puts authentication out of scope and `specs/domain.md` says a
+reviewer is a handle with no password. This is enough for criterion 3 and not
+enough for two people on one batch; a handle picker belongs in what I would do
+next.
