@@ -86,3 +86,67 @@ database another branch is using.
 the drizzle-kit CLI does not read `.env.local` the way Next does. `ws` because
 the Neon WebSocket driver needs a socket constructor in Node. Each is listed
 here so it reads as a decision rather than drift.
+
+## Slice 02, extraction
+
+**Invariant 1 lives in a pure function, not in the write.**
+`src/domain/extraction-merge.ts` decides which fields an extraction may touch;
+`src/server/extractions.ts` writes exactly that list and has no other path into
+`fields`. The alternative was enforcing it at the point of the update, which
+would have been simpler to write and impossible to test where it matters: CI has
+no database, and the `degraded` job is where this guarantee has to hold. The
+tradeoff is that the invariant depends on the server not growing a second write
+path, so there is also a `setWhere` on the upsert restricting it to
+`auto_accepted` and `needs_review` — the database refuses the write even if the
+planner is ever wrong.
+
+**A `sampled` field is preserved by re-extraction.**
+Invariant 1 names a closed allowlist: a re-extraction "only populates fields
+whose status is `auto_accepted` or `needs_review`". `sampled` is not in it. The
+competing reading is that the invariant protects human input, and nobody has
+looked at a sampled field yet, so it is fair game. The allowlist won because it
+is what the spec says and because replacing a drawn sample between the draw and
+the review would quietly change what was being verified.
+
+**Sampling is keyed on `documentId:fieldName`, not the field row's uuid.**
+`specs/domain.md` says "a seeded pseudorandom function of the field id". A row's
+uuid does not exist before its first insert, so a first extraction could not
+compute one, and a re-extraction would have to reuse the old row's id to stay
+stable. The composite is the same identity, is known before the row exists, and
+is stable across reloads and re-extractions, which is the property the spec is
+protecting. Rejected: `Math.random()`, which would make a field appear and vanish
+between reloads, and a process-seeded PRNG, which would not survive a restart.
+
+**Plain JSON parsed by Zod, not the structured outputs API.**
+Structured outputs would make a schema failure nearly impossible, which sounds
+like an improvement until you notice it turns "fails schema parse twice, then
+fallback" into unreachable code. `specs/domain.md` wants that path real, and the
+`degraded` job exists to keep it honest. Zod remains the boundary either way, so
+nothing is trusted that would otherwise have been.
+
+**`image_width` is measured from the bytes being sent.**
+`specs/extraction.md` wants the width recorded because images are the expensive
+part of a request and the README quotes a measured cost. Reading the PNG or JPEG
+header on the way out cannot drift from what actually happened; taking the
+browser's word for it would need a new column on `documents` and a second
+migration. `src/extract/image.ts` is hand-rolled rather than a dependency,
+because it is two headers.
+
+**A document reaches `ready` even when the fallback found nothing.**
+Two parts of the spec pull in different directions here. `specs/domain.md` says
+`failed` means "both extraction attempts failed and the fallback also produced
+nothing usable", and with an image and no OCR step the fallback produces exactly
+that. But success criterion 4 in `specs/product.md` says removing the API key
+must still let documents "reach a reviewer, with every field flagged for review",
+and a `failed` document is off the review path. So `failed` is reserved for the
+case where no fields could be written at all — an unreadable blob — and eight
+flagged empty fields count as reaching a reviewer. The criterion is the more
+specific statement about the case that actually occurs.
+
+**The fallback reads text, and an image supplies none.**
+The regexes are implemented and tested against the three field types the spec
+names, but there is no OCR step by design, so an image gives them nothing to work
+on and the fallback returns eight flagged empty fields. That is still the
+behaviour success criterion 4 asks for. The regexes earn their keep the moment
+any text source exists — a PDF text layer, or a paste — and the alternative was
+either an OCR dependency the spec forbids or deleting logic the spec requires.
