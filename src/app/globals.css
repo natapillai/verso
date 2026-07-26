@@ -62,3 +62,26 @@ body {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+/*
+  The whole motion system, from specs/design.md. Two behaviours and no more:
+  a line that appears instantly reads as a rendering artefact and a line that
+  draws reads as a connection, and the corrected state wants to be noticed once
+  rather than announced. Focus rings are instant, always.
+
+  This is a tool people use for hours. Animation becomes noise fast.
+*/
+:root {
+  --tether-draw: 180ms;
+  --wash: 200ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The tether appears without drawing, the wash becomes a plain state change.
+     Nothing is lost. */
+  :root {
+    --tether-draw: 0ms;
+    --wash: 0ms;
+  }
+}
