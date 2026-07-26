@@ -19,16 +19,7 @@ import type { ReviewField } from "@/server/review";
   reserved so the one red thing on the screen means something.
 */
 
-export const FIELD_LABELS: Record<string, string> = {
-  invoice_number: "Invoice number",
-  issue_date: "Issue date",
-  due_date: "Due date",
-  supplier_name: "Supplier name",
-  supplier_tax_id: "Supplier tax ID",
-  currency: "Currency",
-  subtotal: "Subtotal",
-  total: "Total",
-};
+import { FIELD_LABELS } from "@/ui/field-labels";
 
 /** The left edge. Weight and dash carry status; only `corrected` carries colour. */
 function edgeClass(status: ReviewField["status"]): string {

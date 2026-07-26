@@ -173,6 +173,23 @@ export const fields = pgTable(
     boxX1: doublePrecision("box_x1"),
     boxY1: doublePrecision("box_y1"),
     status: fieldStatus("status").notNull().default("needs_review"),
+    /*
+      What extraction decided this field was, before any human touched it.
+      Written once by extraction and never by review.
+
+      Two of the three accuracy numbers are defined over a field's status before
+      review: field accuracy over "needs_review fields plus sampled fields", and
+      auto accept precision "restricted to fields that were sampled". `status`
+      is overwritten the moment a reviewer confirms, so without this column the
+      fact a field was ever drawn for verification is lost and neither number
+      can be computed.
+
+      Deriving it instead — confidence against the extraction's threshold — would
+      break invariant 5: a re-extracted field points at a new extraction row with
+      possibly different settings, and reading today's threshold would
+      retroactively change what counted as auto accepted.
+    */
+    initialStatus: fieldStatus("initial_status"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

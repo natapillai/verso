@@ -123,6 +123,10 @@ export async function runExtraction(documentId: string): Promise<ExtractionResul
           boxX1: field.box?.x1 ?? null,
           boxY1: field.box?.y1 ?? null,
           status: field.status,
+          // What extraction decided, kept for the accuracy queries. Set on
+          // insert and again on re-extraction, because a re-extraction is a
+          // fresh decision — but never touched by review.
+          initialStatus: field.status,
         })
         .onConflictDoUpdate({
           target: [fields.documentId, fields.name],
@@ -135,6 +139,7 @@ export async function runExtraction(documentId: string): Promise<ExtractionResul
             boxX1: field.box?.x1 ?? null,
             boxY1: field.box?.y1 ?? null,
             status: field.status,
+            initialStatus: field.status,
             updatedAt: new Date(),
           },
           // Belt and braces on invariant 1, enforced by the database rather than

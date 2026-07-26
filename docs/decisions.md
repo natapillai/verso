@@ -203,3 +203,55 @@ look for something only ever wanted in context.
 reviewer is a handle with no password. This is enough for criterion 3 and not
 enough for two people on one batch; a handle picker belongs in what I would do
 next.
+
+## Slice 04, accuracy
+
+**`fields.initial_status`, and the migration I said would not be needed.**
+In slice 01 I claimed the schema landed complete and no later slice would add a
+migration. That was wrong. Two of the three accuracy numbers are defined over a
+field's status *before* review — field accuracy over "needs_review fields plus
+sampled fields", auto accept precision "restricted to fields that were sampled" —
+and `status` is overwritten the moment a reviewer confirms. I modelled the
+statuses as one mutable column without thinking through what the accuracy queries
+would need to read back, so those two numbers were not computable at all.
+
+**Storing the decision rather than deriving it.**
+It is nearly derivable: confidence against the extraction's threshold gives auto
+accepted versus needs review, and sampling is a deterministic function of the
+field's identity. Rejected for two reasons. It would put the sampling rule in a
+second place, in SQL, where a change to `src/domain/sampling.ts` would make the
+two disagree silently with no test failing. And it would break invariant 5 — a re
+extracted field points at a new extraction row with possibly different settings,
+so deriving from the current row would retroactively reclassify history, which is
+the exact fiction that invariant exists to prevent.
+
+**Null, not zero, when nothing has been reviewed.**
+`NULLIF` in the queries and `accuracyRatio` returning null rather than `NaN` or
+`0`. A zero on this page reads as "the model got everything wrong" when the truth
+is "nobody has looked yet", and a reader acts differently on those two. The page
+renders `—`.
+
+**The page refuses to judge the threshold on a small sample.**
+`specs/domain.md` says to say plainly when precision drops below roughly 0.97.
+`specs/extraction.md` says calibration needs a few hundred sampled fields. Taken
+together, a precision of 0.50 over two draws should not raise an alarm and a 1.00
+over three should not sound an all clear, so below about thirty samples the page
+says the number is not standing on anything yet. The alternative — applying the
+0.97 rule from the first sample — would make the headline number noise for the
+entire early life of the system, which is exactly when someone is deciding
+whether to trust it.
+
+**One correction count in `--mark`, not two.**
+The first version of the table marked both the per-field corrected column and the
+corrected-in-sample figure. `specs/design.md` allows one correction count on this
+view and says to cut a fourth use if it appears in review. It appeared; it was
+cut. The sample figure is muted, alongside sample size, because precision is the
+headline in that block and the rest are supporting.
+
+**Preview and production share one Anthropic key.**
+`specs/delivery.md` calls for separate keys so a preview cannot spend the
+production budget. They are the same key, deliberately, and recorded here so the
+README does not imply an isolation that is not there. Separate keys alone would
+not have created separate budgets in any case — billing is per account, and the
+mechanism that would actually cap preview spend is a separate workspace with its
+own monthly limit.
