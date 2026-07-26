@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/*
+  The whole colour system, from specs/design.md. Six tokens, declared once,
+  under the names the spec uses so the spec and the stylesheet read side by
+  side. --mark is for corrections only: the outline of a focused field's
+  region, the left edge of a corrected field, and the correction count on the
+  accuracy view. Nowhere else.
+*/
+:root {
+  --ground: #eef0ec;
+  --panel: #ffffff;
+  --rule: #d5d9d2;
+  --muted: #6c736d;
+  --ink: #14263a;
+  --mark: #c0392b;
+}
+
+@theme inline {
+  /*
+    Tailwind's default palette is dropped rather than shadowed. Six tokens is
+    the whole system, and one stray bg-slate-200 in a later slice would quietly
+    make that untrue.
+  */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-rule: var(--rule);
+  --color-muted: var(--muted);
+  --color-ink: var(--ink);
+  --color-mark: var(--mark);
+
+  /*
+    Three faces by role, not by name. Display is page titles and field group
+    headings only. Data is small sizes only, because Martian Mono is wide.
+    Field values are body with tabular-nums, never data.
+  */
+  --font-display: var(--font-spectral);
+  --font-body: var(--font-public-sans);
+  --font-data: var(--font-martian-mono);
+
+  /* Ratio 1.25. The default scale is dropped for the same reason as the palette. */
+  --text-*: initial;
+  --text-h1: 1.953rem;
+  --text-h2: 1.25rem;
+  --text-body: 1rem;
+  --text-small: 0.8rem;
+  --text-micro: 0.64rem;
+}
+
+body {
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+}
+
+/* Quality floor, specs/design.md: focus visible everywhere in --ink at 2px. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

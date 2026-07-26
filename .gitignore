@@ -143,3 +143,10 @@ vite.config.ts.timestamp-*
 .vite/
 .vercel
 .env*
+
+# Agent tooling and worktrees. Not part of the submission.
+.claude/
+
+# Re-exempt after the .env* above, which otherwise overrides the negation on
+# line 71. Later patterns win, and .env.example is documentation, not a secret.
+!.env.example
