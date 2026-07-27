@@ -83,23 +83,24 @@ Measured from the seeded corpus of twenty invoices, which were uploaded,
 extracted, reviewed and corrected through the product's own HTTP API — not
 inserted. `scripts/seed.mjs` does the same things a reviewer's browser does.
 
-These are the figures on the deployment as seeded. They move as anyone uses it,
-which is the point — read `/accuracy` for the current ones.
+Read on 27 July 2026. They will not match by the time you look, and that is the
+product working rather than a stale README: every figure moves the moment anyone
+confirms or corrects anything on the live URL. `/accuracy` is always current.
 
 | | |
 |---|---|
-| Field accuracy | 91.7% over the 12 fields a person actually looked at |
+| Field accuracy | 93.3% over the 15 fields a person actually looked at |
 | Worst field | Supplier name, 66.7% — two right, one wrong |
-| Auto accept precision | 91.7% over a sample of 12, one of which was wrong |
+| Auto accept precision | 93.3% over a sample of 15, one of which was wrong |
 | Corrected outside the sample | 3 |
-| Time saved | 21m 0s over 84 fields nobody had to touch, at a 15s manual baseline |
+| Time saved | 19m 0s over 76 fields nobody had to touch, at a 15s manual baseline |
 | Threshold / sample rate | 0.85 / 0.1 |
 
 Nothing on that page reads 100%, and it was not arranged that way. The seed
 confirms and corrects the same way a reviewer would, against whatever the model
 actually returned, so the numbers are whatever they are.
 
-**The interesting figure is the 3, not the 91.7%.** Those three fields were
+**The interesting figure is the 3, not the 93.3%.** Those three fields were
 auto accepted, never drawn for verification, and corrected by a reviewer who
 opened them anyway. They sit outside both percentages by design — not in field
 accuracy, because that population is fields a human was *asked* to check, and not
@@ -114,7 +115,7 @@ That is the product working. A confidence score of 0.99 on a wrong value is
 exactly the failure the whole design is arranged to catch, and here it is caught,
 counted, and stated on the page rather than absorbed into an average.
 
-**A sample of 12 is not enough to judge a threshold, and normally the page
+**A sample of 15 is not enough to judge a threshold, and normally the page
 refuses to.** Twenty documents is 160 fields; at a 0.1 rate that is about 16
 draws, against the 30 set as the floor for trusting the figure, so it would
 ordinarily decline to judge rather than print a number. Here the three
