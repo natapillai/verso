@@ -217,12 +217,18 @@ Recorded in `docs/decisions.md` with the reasoning — briefly, separate keys on
 one account do not create separate budgets, and the thing that would actually cap
 preview spend is a separate workspace with its own limit.
 
-**There is no `pnpm eval`.**
-`specs/extraction.md` describes a harness over twenty labelled fixtures, run
-against a candidate prompt before it ships, so a prompt change is measured rather
-than guessed. It was never built. The prompt has been changed by judgement and
-checked by eye, which is exactly what the harness exists to stop. This is the
-largest single gap between the specs and the repository.
+**Half of `pnpm eval` exists.**
+`specs/extraction.md` describes a harness over labelled fixtures, run against a
+candidate prompt before it ships, so a prompt change is measured rather than
+guessed. `pnpm eval:boxes` is the part that could be built honestly: the seeded
+pages are generated here and tag every printed value, so a box has ground truth
+and the model's answer can be scored against it. That is what caught the region
+outlines being wrong.
+
+Values and confidences still have no labelled answer, because that needs a
+hand-labelled corpus rather than a generated one, so every decision about what
+the prompt asks for is still made by judgement and checked by eye. That remains
+the largest gap between the specs and the repository.
 
 **The fallback cannot reach an image.**
 The regexes in `src/extract/fallback.ts` are implemented and tested, but with no
@@ -253,6 +259,14 @@ browser redraws anything wider than that, and the rendered width for anything
 posted straight to the API — the seed does not downscale, since it is not a
 browser. Null means a PDF, which has no canvas path. Worth knowing before reading
 the column as a measure of anything.
+
+**The model cannot locate a value, so the tether was removed.**
+`specs/design.md` builds the review screen around a line from the focused field
+to that value's region on the page. `pnpm eval:boxes` measures the boxes that
+line was drawn from: 10% land on the value, mean IoU 0.05, and Sonnet is no
+better. Boxes are still extracted, stored and constrained by invariant 6, and the
+harness still scores them — nothing draws them. `docs/decisions.md` has the
+reasoning and the alternatives that were rejected.
 
 **The document panel could not display a PDF, and for a while every seeded
 document was one.**

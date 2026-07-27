@@ -6,7 +6,7 @@ import type { QueueDocument, QueueSummary } from "@/server/queue";
   Same rules as the field column in specs/design.md: state is carried by the
   weight of the left edge, never by colour. A document with fields still owed
   attention gets a two pixel --ink edge, exactly as a needs_review field does;
-  everything else gets none. --mark is not used here at all — it has three places
+  everything else gets none. --mark is not used here at all — it has two places
   in this product and this is not one of them.
 
   One row per document, the filename first, because that is what a person is

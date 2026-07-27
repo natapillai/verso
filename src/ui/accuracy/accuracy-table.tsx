@@ -15,7 +15,7 @@ import type {
   depends on, so a reader can disagree with the assumption rather than the
   arithmetic.
 
-  --mark appears once here, on the correction count. That is its third and final
+  --mark appears once here, on the correction count. That is its second and final
   use in the product, alongside the focused region's outline and a corrected
   field's left edge on the review screen.
 */

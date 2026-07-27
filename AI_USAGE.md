@@ -70,6 +70,20 @@ screen whose entire premise is eight Enters and one Cmd Enter, that is the bug
 that matters most, and it survived three slices of manual testing because every
 manual test clicked before typing.
 
+**A signature feature built on data the model does not produce.**
+The tether — a line from a field to that value's region on the page — was built
+in slice 03, verified by looking at it, and shipped. It was drawn from bounding
+boxes the model returns, and nobody checked whether those boxes were right. They
+were not: 10% of them land on the value. Worse, the prompt was causing it. One
+worked example containing a box 0.26 by 0.04 was enough for the model to return
+0.26 by 0.04 for all eight fields, stepping down the page at a fixed interval —
+a ladder that looked like output and measured nothing. It took a user opening a
+document and saying the highlight was on blank paper.
+
+The fix was to build the measurement first, which is the thing
+`specs/extraction.md` asked for at the start and I skipped. With the number in
+hand the feature was removed rather than defended.
+
 **Twenty seeded documents the review screen could not display.**
 The worst one. The seed produced PDFs; the document panel puts the file in an
 `<img>`, and no browser renders a PDF that way — it shows a broken image and
@@ -125,6 +139,13 @@ an invariant that was in fact holding. Two other verification steps were also
 wrong rather than the code: calling `.focus()` and setting `scrollTop`
 programmatically emit no events in a non-compositing browser pane, so both looked
 broken and were not.
+
+**A third instrument that was wrong rather than the code.**
+The box eval read `box` from the fields route, which had never returned one, and
+reported that the model placed no boxes at all. Two prompt rewrites were made
+against that reading before the raw model output was checked and found to contain
+perfectly good boxes all along. Check the instrument before the subject: this is
+the third time in this project the tool was the thing that was broken.
 
 **Two probes that hid the bug they were written to find.**
 Both slice 05 focus bugs above were, at first, not reproducible: a debugging
