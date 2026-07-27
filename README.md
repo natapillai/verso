@@ -74,34 +74,40 @@ Measured from the seeded corpus of twenty invoices, which were uploaded,
 extracted, reviewed and corrected through the product's own HTTP API — not
 inserted. `scripts/seed.mjs` does the same things a reviewer's browser does.
 
-<!--
-  Re-read /accuracy after seeding production and replace this block. The figures
-  move as anyone uses the deployment, which is the point.
--->
+These are the figures on the deployment as seeded. They move as anyone uses it,
+which is the point — read `/accuracy` for the current ones.
 
 | | |
 |---|---|
-| Field accuracy | 100% over 14 fields a person actually looked at |
-| Auto accept precision | 100% over a sample of 14 |
+| Field accuracy | 100% over 11 fields a person actually looked at |
+| Auto accept precision | 100% over a sample of 11 |
 | Corrected outside the sample | 4 |
-| Time saved | 20m 45s over 83 fields nobody had to touch, at a 15s manual baseline |
+| Time saved | 21m 45s over 87 fields nobody had to touch, at a 15s manual baseline |
 | Threshold / sample rate | 0.85 / 0.1 |
 
-Three things about that table are more interesting than the percentages.
+Two 100% figures and, underneath them, four fields that were wrong. That is not a
+contradiction and it is the most useful thing on the page.
 
-**A sample of 14 is not enough to judge anything, and the page says so.** Twenty
-documents is 160 fields; at a 0.1 sample rate that is about 16 draws, against the
-30 set as the floor for trusting the figure. The page prints "too few samples to
-judge the threshold" rather than a reassuring 100%. Raising the sample rate for
-the demo would have produced a better looking screenshot and a worse product.
+**The four corrections are outside both percentages, by design.** They are fields
+the model was confident about, that were never drawn for verification, and that a
+reviewer opened and corrected anyway. They are not in field accuracy, because that
+population is fields a human was *asked* to check. They are not in the sample,
+because they were never drawn. So the page reports them beside the precision
+figure rather than folding them in — folding them in would bias the estimate in
+both directions at once, and the reasoning is in
+[docs/decisions.md](docs/decisions.md). What the page actually says is:
 
-**"Corrected outside the sample: 4" is the most useful number on the page.** Those
-are fields the model was confident about, that were never drawn for verification,
-and that a reviewer opened and corrected anyway. Each one is direct evidence that
-the threshold is letting errors through. They are reported beside auto accept
-precision rather than folded into it, because folding them in would bias the
-estimate in both directions at once — reasoning in
-[docs/decisions.md](docs/decisions.md).
+> 4 auto accepted fields turned out to be wrong when someone looked. The
+> threshold is letting errors through.
+
+**A sample of 11 is not enough to judge a threshold, and normally the page
+refuses to.** Twenty documents is 160 fields; at a 0.1 rate that is about 16
+draws, against the 30 set as the floor for trusting the figure, so it would
+ordinarily print "too few samples to judge the threshold" rather than a
+reassuring 100%. Here the four corrections outrank that and it raises the alarm
+instead — evidence of real errors does not need a large sample to be worth acting
+on. Raising the sample rate to make the demo look better would have produced a
+nicer screenshot and a worse product.
 
 **Time saved counts only fields nobody touched at all**, which is the strictest
 reading available, and the 15s manual baseline is printed next to the result so a

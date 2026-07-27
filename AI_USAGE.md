@@ -78,10 +78,15 @@ what the model received was faint. It looked convincing in a screenshot and was
 measuring nothing. Redesigned around genuine ambiguity — the same reference struck
 twice at identical coordinates, a truncated year, three competing totals.
 
-**A shell command handed over that could not work.**
-A `gh api` invocation for branch protection built nested JSON with repeated `-f`
-flags, which that flag cannot do. It was run, it failed, and the correction was
-`--input` with a JSON file. Cost about ten minutes of someone else's time.
+**Shell commands handed over that could not work. Twice, both branch protection.**
+The first built nested JSON with repeated `-f` flags, which that flag cannot do.
+The second fixed that with `--input -` and a `<<<` here-string — bash syntax,
+handed to someone whose shell is PowerShell, where it is a parse error. Both were
+run, both failed, and the second was reported back as a working directory problem,
+which it was not. The fix that holds in either shell is `--input <file>`. The
+lesson is narrow and worth stating: a command written for someone else to run has
+to match the shell they actually have, and this project has said "Shell:
+PowerShell" at the top of every session.
 
 ## Wrong diagnoses, which is a different failure
 
