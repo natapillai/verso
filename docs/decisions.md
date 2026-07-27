@@ -277,3 +277,91 @@ touched, which sweeps in the six auto accepted confirmations of an eight-Enter
 run and inflates the denominator, or to leave the signal out entirely and note
 the limitation in the README. Both were rejected: the first corrupts the number,
 the second knowingly ships a blind spot.
+
+## Slice 05, the deliverable
+
+**The seed drives the HTTP API rather than inserting rows.**
+`scripts/seed.mjs` uploads, extracts, confirms and corrects through the endpoints
+a reviewer's browser uses. Inserting rows directly would be faster, free, and
+would let the demo numbers be chosen rather than measured. Rejected because the
+whole claim of this product is that its numbers come from work actually done, and
+a demo whose numbers were typed in undermines that in the one place a reader
+looks. It also closed a real gap: every accuracy figure before this slice had
+only ever been checked against rows I wrote by hand.
+
+**The seeded documents are generated PDFs, hand-rolled in about eighty lines.**
+`scripts/invoice-pdf.mjs` writes the PDF bytes directly, using the built-in
+Helvetica so nothing needs embedding. The alternatives were committing twenty
+images, which puts megabytes in the repository, or adding a rendering dependency,
+which `CLAUDE.md` rules out. The unexpected benefit is a text layer, which is the
+first thing the regex fallback has ever had to work on outside its unit tests.
+
+**"Hard to read" had to mean ambiguous, not faint.**
+The first version of the two difficult documents printed pale grey text at a small
+size. It changed nothing: average confidence came back 0.990, identical to the
+other eighteen, with not one field flagged. Faintness is a property of a
+*rasterised* page, and a PDF carries an exact text layer, so there was nothing
+faint about what the model received. The redesign gives it genuine ambiguity
+instead — the same reference struck twice at identical coordinates, a truncated
+year, a tax id one digit short, and three competing totals with transposed
+digits. Worth recording because the first version looked convincing in a
+screenshot and was measuring nothing.
+
+**The prompt still does not ask for low confidence on ambiguity.**
+Even with the redesigned documents only one field across 160 came back flagged.
+The prompt instructs low confidence for values the model *cannot read*, and an
+ambiguous value is perfectly readable — it just has two candidate answers. The
+honest fix is a prompt change measured against labelled fixtures, which is the
+`pnpm eval` harness that was never built, so changing the prompt by eye here would
+be guessing dressed up as a fix. Left as it is, and named.
+
+**A `GET /api/documents/[id]/fields` route, added for the seed.**
+The seed needs to know what extraction produced before it can decide what to
+confirm and what to correct. Reading the database directly would have meant
+handing the seed script database credentials and a second copy of the schema; the
+route means `pnpm seed -- --url https://…` works against a deployment with no
+credentials at all. It is a read-only projection of what the review screen already
+receives.
+
+**The e2e specs paint a unique marker into the fixture before uploading.**
+Invariant 4 makes the same bytes one document, so a spec that uploads a fixture
+verbatim deduplicates, from its second run onward, into the document its first run
+already reviewed and completed. Renaming does not help — the name is not hashed —
+and neither does image metadata, because `downscale()` redraws anything wider than
+1600px through a canvas and keeps only the pixels. So `e2e/fixture.ts` paints two
+random colour blocks into the bottom margin, in the page, because the browser
+holds the only image encoder either spec has. The alternative was uploading a
+freshly generated PDF, which is three lines instead of thirty and gives up the
+only e2e coverage of downscaling and the recorded image width.
+
+**Focus is held in a ref, and the actions read the ref.**
+The screen invites clicking a field and typing straight into it, since any
+character begins a correction. Those two events can land in the same frame, before
+React has re-rendered, and a handler reading render-time state then acts on the
+field that was focused a moment ago — putting the correction on the wrong row and
+writing a correction row against a value the reviewer never disagreed with. State
+still decides what is drawn; the ref decides what is acted on. The same race
+applies to Enter held down through the eight-field rhythm, where key repeat
+outruns a render easily.
+
+**Focus returns to the row in an effect, not in the commit.**
+Committing unmounts the input, and focusing the row in the same breath lands on
+the Save button that is about to be removed with it, after which focus falls to
+the body and the keyboard is dead until the reviewer clicks something. It is the
+same failure the landing effect prevents, one step later in the rhythm. The effect
+runs after the row is drawn again, so there is somewhere for the focus to go.
+
+**`e2e.yml` triggers on `deployment_status`.**
+Waiting for a Vercel preview otherwise means a third-party action or a polling
+loop. Vercel posts the deployment, GitHub fires the event, and the URL arrives on
+it as `environment_url`. The guard keeps it to successful non-production
+deployments, so merging to `main` never points the specs at production. The cost
+is that the check is not attached to the pull request the way `verify` is, and has
+to be added to branch protection by name.
+
+**The specs run against a deployment they did not start.**
+`playwright.config.ts` has no `webServer`. It points at `E2E_BASE_URL`, defaulting
+to localhost. A config that starts its own server would test a build nobody is
+going to use; `specs/delivery.md` wants these two specs covering "what only breaks
+once the whole thing is assembled", and the assembled thing is the preview
+deployment with its real database and its real blob store.

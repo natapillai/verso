@@ -1,5 +1,64 @@
 # Architecture
 
+Written against what is in the repository, not against what the specs said would
+be built. Where the two differ there is a section at the end saying so.
+
+## The four paths
+
+Everything the product does is one of four request paths.
+
+**Upload.** The browser redraws any image wider than 1600px through a canvas and
+sends JPEG at quality 0.9 (`src/ui/downscale.ts`), then posts the files to
+`/api/upload`. The route hashes the bytes with sha256, writes them to a private
+Blob store under a pathname that *is* the hash, and inserts a document row. New
+file answers 202, a hash already present answers 200 and points at the document
+that already exists. A PDF is passed through untouched — there is no canvas path
+for one, and rasterising it in the browser would mean a PDF renderer in the
+bundle.
+
+**Extraction.** A second request, `/api/documents/[id]/extract`, fired by the
+client once the upload answers. It is deliberately not part of the upload: the
+upload accepts bytes and returns, reading the page happens after. The route sends
+the image or the PDF to the Anthropic Messages API, parses the reply against a
+Zod schema, and on two failed attempts falls back to regexes over any text it can
+find. Either way it writes one `extractions` row — model, prompt version,
+threshold, sample rate, image width — and upserts eight `fields`.
+
+**Review.** `/review/[id]` is a server component that loads the document and its
+fields and hands them to one client component. Four small routes serve it:
+`confirm`, `correct`, `complete`, and `file`, which streams the blob because the
+store is private and the bytes are not reachable by URL.
+
+**Accuracy.** `/accuracy` is a server component over four raw SQL queries, below.
+
+## What may import what
+
+```
+src/domain/   pure. no next, no drizzle, no fetch. tested without a database.
+src/extract/  talks to the model. takes its transport by injection.
+src/server/   the only code that touches Postgres or Blob.
+src/ui/       presentational. no business logic.
+src/app/      routes and pages, thin.
+```
+
+The direction is one way: `app` and `ui` may reach into `domain`, nothing reaches
+back. Twelve test files, 162 tests, none of which need a database or a network,
+which is what lets the `degraded` CI job run the whole domain and extraction
+suite with `ANTHROPIC_API_KEY` set to empty.
+
+## Where the invariants are actually enforced
+
+Naming the line of code matters more than restating the rule.
+
+| Invariant | Enforced at |
+|---|---|
+| 1. Extraction never overwrites a human-touched field | `src/domain/extraction-merge.ts` plans the writes; `src/server/extractions.ts` puts the same allowlist in the upsert's `setWhere`, so the database refuses it too |
+| 2. A value change and its correction row commit together | `src/server/review.ts`, one interactive transaction — which is why the Neon WebSocket driver is used rather than the HTTP one |
+| 3. A document cannot complete with fields outstanding | `src/domain/completion.ts`, checked server side in `completeDocument` |
+| 4. The same file twice is one document | a unique index on `documents.content_hash` plus `on conflict do nothing`; the lookup in front of it only saves a pointless blob write |
+| 5. Settings are recorded per extraction | `threshold` and `sample_rate` are columns on `extractions`, never read from `src/domain/thresholds.ts` at display time |
+| 6. Boxes are normalised zero to one | four `double precision` columns with check constraints, so the database refuses a bad box |
+
 ## The accuracy queries
 
 `specs/product.md` success criterion 5: every number on the accuracy view traces
@@ -125,3 +184,59 @@ sampling rule in a second place, in SQL, where it could silently disagree with
 `src/domain/sampling.ts`. And it would break invariant 5: a re-extracted field
 points at a new extraction row with possibly different settings, so reading
 today's threshold would retroactively reclassify history.
+
+## Where the build diverged from the specs
+
+Each of these is a place the specs describe something the repository does not do,
+or does differently. They are here rather than quietly absent.
+
+**One shared preview database, not a Neon branch per pull request.**
+`specs/delivery.md` asks for a branch per pull request, seeded, dropped on merge,
+and gives a good reason: two open branches running migrations against one
+database costs an afternoon. Every preview shares one Neon branch instead. The
+integration that would automate the per-pull-request branch was not set up, and
+with slices landing one at a time there were never two open pull requests to
+collide. The cost is real and worth naming: the second concurrent pull request
+that changes the schema will break the first one's preview, and the e2e specs
+write into the same database the seeded demo corpus lives in.
+
+**Preview and production share one Anthropic key.**
+The spec asks for separate keys so a preview cannot spend the production budget.
+Recorded in `docs/decisions.md` with the reasoning — briefly, separate keys on
+one account do not create separate budgets, and the thing that would actually cap
+preview spend is a separate workspace with its own limit.
+
+**There is no `pnpm eval`.**
+`specs/extraction.md` describes a harness over twenty labelled fixtures, run
+against a candidate prompt before it ships, so a prompt change is measured rather
+than guessed. It was never built. The prompt has been changed by judgement and
+checked by eye, which is exactly what the harness exists to stop. This is the
+largest single gap between the specs and the repository.
+
+**The fallback cannot reach an image.**
+The regexes in `src/extract/fallback.ts` are implemented and tested, but with no
+OCR step by design an image gives them nothing, so for a photographed invoice the
+fallback returns eight flagged empty fields. That still satisfies success
+criterion 4 — every field reaches a reviewer flagged — and the regexes do real
+work on the seeded PDFs, which carry a text layer. Before slice 05 they had never
+been given any text at all outside their unit tests.
+
+**`initial_status` arrived as a second migration.**
+In slice 01 the schema was declared complete, with the reasoning that later slices
+should add behaviour rather than migrations. Slice 04 needed a column that was not
+there. `drizzle/0001` adds it nullable and backfills, per the spec's own advice on
+migration shape, but the claim was wrong when it was made.
+
+**Documents are seeded through the HTTP API, not inserted.**
+`scripts/seed.mjs` uploads, extracts, confirms and corrects through the same
+endpoints a reviewer's browser uses, so the demo data is real output rather than
+fixtures arranged to look like output. It is slower and it costs a few cents in
+model calls. It also caught the thing hand-seeding never would have: until slice
+05 the accuracy numbers had only ever been checked against rows written by hand,
+never against rows written by the review path.
+
+**The recorded image width tells you which path a document took.**
+`extractions.image_width` is 1600 for every uploaded photograph, because the
+browser redraws anything wider, and null for every seeded PDF, because there is no
+canvas path for one. Two populations in one column, and worth knowing before
+reading it as a measure of anything.

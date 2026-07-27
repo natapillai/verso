@@ -40,7 +40,7 @@ export function ReviewScreen({
   const router = useRouter();
 
   const [fields, setFields] = useState(review.fields);
-  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [focusedIndex, setFocusedIndexState] = useState(0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -53,6 +53,26 @@ export function ReviewScreen({
   const panelRef = useRef<DocumentPanelHandle>(null);
   /** Guards the Enter-then-blur double commit. See commitEdit. */
   const committing = useRef(false);
+
+  /*
+    Which field is focused is held in a ref as well as in state, and the ref is
+    what the actions read.
+
+    The design invites clicking a field and typing straight into it — any
+    character begins a correction. Those two events can arrive in the same frame,
+    before React has re-rendered, and a handler reading render time state would
+    then act on the field that was focused a moment ago: the correction lands on
+    the wrong row and writes a correction row against a value the reviewer never
+    disagreed with. The same applies to Enter held down through the eight field
+    rhythm, where key repeat outruns a render easily.
+
+    State still drives what is drawn. The ref only decides what is acted on.
+  */
+  const focusedIndexRef = useRef(0);
+  const setFocusedIndex = useCallback((index: number) => {
+    focusedIndexRef.current = index;
+    setFocusedIndexState(index);
+  }, []);
 
   const focused = fields[focusedIndex] ?? null;
 
@@ -94,6 +114,23 @@ export function ReviewScreen({
   }, []);
 
   /*
+    Give the row its focus back once an edit is over.
+
+    Committing unmounts the input, and focusing the row in the same breath lands
+    on the Save button that is about to be removed with it — after which focus
+    falls to the body, outside the key handler, and the keyboard is dead until
+    the reviewer clicks something. That is the same failure the landing effect
+    above exists to prevent, arriving one step later in the rhythm, and it breaks
+    the path the screen is built around: correct a field, then carry on pressing
+    Enter. Waiting for the row to be drawn again gives the focus somewhere to go.
+  */
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (wasEditing.current && !editing) focusRow(focusedIndexRef.current);
+    wasEditing.current = editing;
+  }, [editing, focusRow]);
+
+  /*
     Handed to the tether and called inside its layout effect, never during
     render: refs are empty on the first pass, and reading them there would leave
     the line undrawn until something unrelated re-rendered.
@@ -107,7 +144,7 @@ export function ReviewScreen({
 
   const patch = useCallback((index: number, next: Partial<ReviewField>) => {
     setFields((current) =>
-      current.map((field, i) => (i === index ? { ...field, ...field, ...next } : field)),
+      current.map((field, i) => (i === index ? { ...field, ...next } : field)),
     );
   }, []);
 
@@ -129,31 +166,33 @@ export function ReviewScreen({
   );
 
   const confirmAndAdvance = useCallback(() => {
-    void confirmField(focusedIndex);
-    const next = Math.min(focusedIndex + 1, fields.length - 1);
+    const index = focusedIndexRef.current;
+    void confirmField(index);
+    const next = Math.min(index + 1, fields.length - 1);
     setFocusedIndex(next);
     focusRow(next);
-  }, [confirmField, focusedIndex, fields.length, focusRow]);
+  }, [confirmField, fields.length, focusRow, setFocusedIndex]);
 
   const beginEdit = useCallback(
     (seed?: string) => {
-      const field = fields[focusedIndex];
+      const field = fields[focusedIndexRef.current];
       if (!field) return;
       setDraft(seed ?? field.value ?? "");
       setEditing(true);
     },
-    [fields, focusedIndex],
+    [fields],
   );
 
   const cancelEdit = useCallback(() => {
-    // Escape abandons the correction and restores the model value.
+    // Escape abandons the correction and restores the model value. Focus comes
+    // back to the row through the effect above, once the input is gone.
     setEditing(false);
     setDraft("");
-    focusRow(focusedIndex);
-  }, [focusedIndex, focusRow]);
+  }, []);
 
   const commitEdit = useCallback(async () => {
-    const field = fields[focusedIndex];
+    const index = focusedIndexRef.current;
+    const field = fields[index];
     if (!field) return;
 
     /*
@@ -171,17 +210,15 @@ export function ReviewScreen({
     // Typing then landing on the same value is agreement, not disagreement.
     if (next === (field.value ?? null)) {
       committing.current = false;
-      focusRow(focusedIndex);
       return;
     }
 
     const previousValue = field.value;
-    patch(focusedIndex, {
+    patch(index, {
       value: next,
       status: "corrected",
       correction: { previousValue, reviewer, at: new Date().toISOString() },
     });
-    focusRow(focusedIndex);
 
     const response = await fetch(`/api/fields/${field.id}/correct`, {
       method: "POST",
@@ -190,12 +227,12 @@ export function ReviewScreen({
     });
 
     if (!response.ok) {
-      patch(focusedIndex, { value: previousValue, status: field.status, correction: null });
+      patch(index, { value: previousValue, status: field.status, correction: null });
       setMessage("That correction did not save. Try it again.");
     }
 
     committing.current = false;
-  }, [draft, fields, focusedIndex, focusRow, patch, reviewer]);
+  }, [draft, fields, patch, reviewer]);
 
   const confirmAll = useCallback(() => {
     fields.forEach((field, index) => {
