@@ -122,3 +122,47 @@ describe("describePrecision", () => {
     expect(describePrecision(null, 10).tone).toBe("no-data");
   });
 });
+
+/*
+  A field that was auto accepted, never drawn for verification, and then
+  corrected by a reviewer who opened it anyway is the most direct evidence the
+  product can produce that the threshold is too low: auto accept let a wrong
+  value through and a person caught it by chance.
+
+  Before this, that correction was invisible in all three numbers — outside the
+  field accuracy population, outside the sample, and excluded from time saved.
+  The metric was quietly flattering itself in exactly the way the random sample
+  exists to prevent.
+*/
+describe("describePrecision with corrections found outside the sample", () => {
+  it("speaks up even when the drawn sample is too small to judge", () => {
+    const result = describePrecision(1, 2, 1);
+    expect(result.tone).toBe("caught-outside-sample");
+  });
+
+  it("speaks up even when the sampled precision looks perfect", () => {
+    const result = describePrecision(1, 500, 3);
+    expect(result.tone).toBe("caught-outside-sample");
+    expect(result.message).toContain("letting errors through");
+  });
+
+  it("speaks up even when nothing has been sampled at all", () => {
+    expect(describePrecision(null, 0, 1).tone).toBe("caught-outside-sample");
+  });
+
+  it("counts one field in the singular", () => {
+    expect(describePrecision(1, 500, 1).message).toContain("1 auto accepted field ");
+  });
+
+  it("counts several in the plural", () => {
+    expect(describePrecision(1, 500, 4).message).toContain("4 auto accepted fields ");
+  });
+
+  it("stays out of the way when none were found", () => {
+    expect(describePrecision(1, 500, 0).tone).toBe("ok");
+  });
+
+  it("defaults to none, so existing callers are unaffected", () => {
+    expect(describePrecision(1, 500).tone).toBe("ok");
+  });
+});

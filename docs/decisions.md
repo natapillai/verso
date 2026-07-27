@@ -255,3 +255,25 @@ README does not imply an isolation that is not there. Separate keys alone would
 not have created separate budgets in any case — billing is per account, and the
 mechanism that would actually cap preview spend is a separate workspace with its
 own monthly limit.
+
+**Corrections outside the sample are reported, not folded in.**
+A field that was auto accepted, never drawn for verification, and then corrected
+by a reviewer who opened it anyway was invisible in all three numbers: outside
+the field accuracy population, outside the sample, and excluded from time saved
+because a human had touched it. That is the same shape as the hole the random
+sample exists to close — a metric quietly flattering itself — and it is the
+strongest evidence the product can produce that the threshold is wrong.
+
+It could have been folded into auto accept precision, and was not, because that
+would bias the estimate in both directions at once. A reviewer pressing Enter
+through auto accepted fields has not examined them, so counting those
+confirmations would inflate the ratio; counting only the corrections would
+deflate it. The drawn sample stays the unbiased number and this is reported
+beside it, where it raises the threshold warning regardless of sample size —
+evidence of a real error does not need a large sample to be worth acting on.
+
+The alternative readings were to widen field accuracy to any field a human
+touched, which sweeps in the six auto accepted confirmations of an eight-Enter
+run and inflates the denominator, or to leave the signal out entirely and note
+the limitation in the README. Both were rejected: the first corrupts the number,
+the second knowingly ships a blind spot.

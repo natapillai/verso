@@ -37,13 +37,19 @@ export function AccuracyTable({
   precision,
   saved,
   settings,
+  caughtOutsideSample,
 }: {
   fields: FieldAccuracyRow[];
   precision: AutoAcceptPrecision;
   saved: TimeSaved;
   settings: SettingsInForce[];
+  caughtOutsideSample: number;
 }) {
-  const verdict = describePrecision(precision.precision, precision.sampleSize);
+  const verdict = describePrecision(
+    precision.precision,
+    precision.sampleSize,
+    caughtOutsideSample,
+  );
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -145,6 +151,20 @@ export function AccuracyTable({
               */}
               <td className="py-2 text-right tabular-nums text-muted">
                 {precision.corrected}
+              </td>
+            </tr>
+            {/*
+              Kept out of the ratio above on purpose: these are unsolicited
+              looks, so folding them in would bias the estimate. Reported here
+              because a correction on a field nobody was asked to check is the
+              strongest evidence the threshold is wrong.
+            */}
+            <tr className="border-b border-rule">
+              <th scope="row" className="py-2 text-left font-normal text-muted">
+                Corrected outside the sample
+              </th>
+              <td className="py-2 text-right tabular-nums text-muted">
+                {caughtOutsideSample}
               </td>
             </tr>
           </tbody>

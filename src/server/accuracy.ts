@@ -106,6 +106,31 @@ export async function autoAcceptPrecision(): Promise<AutoAcceptPrecision> {
   };
 }
 
+/**
+ * Corrections found outside the sample.
+ *
+ * Fields that were auto accepted, never drawn for verification, and corrected by
+ * a reviewer who opened them anyway. Each one is proof that auto accept let a
+ * wrong value through — the most alarming signal the product can generate, and
+ * until this query existed it was invisible in every number: outside the field
+ * accuracy population, outside the sample, and excluded from time saved.
+ *
+ * It is reported beside auto accept precision rather than folded into it. A
+ * reviewer pressing Enter through auto accepted fields has not examined them, so
+ * counting those confirmations would inflate the ratio, and counting only these
+ * corrections would deflate it. The drawn sample stays the unbiased estimate.
+ */
+export async function correctionsOutsideSample(): Promise<number> {
+  const result = await db.execute<{ corrected_outside_sample: string }>(sql`
+    SELECT count(*) AS corrected_outside_sample
+    FROM fields
+    WHERE initial_status = 'auto_accepted'
+      AND status = 'corrected'
+  `);
+
+  return Number(result.rows[0]?.corrected_outside_sample ?? 0);
+}
+
 export type TimeSaved = {
   fieldsNeverTouched: number;
   secondsSaved: number;

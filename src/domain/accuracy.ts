@@ -51,7 +51,7 @@ export function timeSavedSeconds(
 }
 
 export type PrecisionVerdict = {
-  tone: "no-data" | "not-enough-yet" | "threshold-too-low" | "ok";
+  tone: "caught-outside-sample" | "no-data" | "not-enough-yet" | "threshold-too-low" | "ok";
   message: string;
 };
 
@@ -59,14 +59,33 @@ export type PrecisionVerdict = {
  * What to say about auto accept precision.
  *
  * This is the number that matters: it answers whether the fields nobody checked
- * were safe to not check. The order of the checks is deliberate — sample size is
- * considered before the value, because judging a threshold on four draws would
- * be the same false confidence the sampling exists to prevent.
+ * were safe to not check.
+ *
+ * `correctedOutsideSample` counts fields that were auto accepted, never drawn for
+ * verification, and corrected by a reviewer who opened them anyway. Each one is
+ * direct proof that auto accept let a wrong value through, and it is checked
+ * first — before sample size, before the ratio — because it is evidence that does
+ * not depend on the sample being large enough to trust.
+ *
+ * Those corrections are deliberately kept *out* of the ratio itself. A reviewer
+ * pressing Enter through auto accepted fields has not examined them, so counting
+ * those confirmations would inflate precision; counting only the corrections
+ * would deflate it. Either way the drawn sample stops being a fair estimate. It
+ * stays the unbiased number, and this is reported beside it.
  */
 export function describePrecision(
   precision: number | null,
   sampleSize: number,
+  correctedOutsideSample = 0,
 ): PrecisionVerdict {
+  if (correctedOutsideSample > 0) {
+    const fields = correctedOutsideSample === 1 ? "field" : "fields";
+    return {
+      tone: "caught-outside-sample",
+      message: `${correctedOutsideSample} auto accepted ${fields} turned out to be wrong when someone looked. The threshold is letting errors through.`,
+    };
+  }
+
   if (precision === null || sampleSize === 0) {
     return {
       tone: "no-data",

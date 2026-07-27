@@ -1,5 +1,6 @@
 import {
   autoAcceptPrecision,
+  correctionsOutsideSample,
   fieldAccuracy,
   settingsInForce,
   timeSaved,
@@ -11,11 +12,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function AccuracyPage() {
-  const [fields, precision, saved, settings] = await Promise.all([
+  const [fields, precision, saved, settings, caughtOutside] = await Promise.all([
     fieldAccuracy(),
     autoAcceptPrecision(),
     timeSaved(),
     settingsInForce(),
+    correctionsOutsideSample(),
   ]);
 
   return (
@@ -24,6 +26,7 @@ export default async function AccuracyPage() {
       precision={precision}
       saved={saved}
       settings={settings}
+      caughtOutsideSample={caughtOutside}
     />
   );
 }

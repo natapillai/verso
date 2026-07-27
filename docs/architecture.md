@@ -74,6 +74,31 @@ disagree with the assumption rather than the arithmetic.
 `sampled` instead. `status` still `auto_accepted` is "no human ever touched it".
 Together they are the strictest honest reading.
 
+### 4. Corrections found outside the sample
+
+Fields that were auto accepted, never drawn for verification, and corrected by a
+reviewer who opened them anyway.
+
+```sql
+SELECT count(*) AS corrected_outside_sample
+FROM fields
+WHERE initial_status = 'auto_accepted'
+  AND status = 'corrected';
+```
+
+Each one is direct proof that auto accept let a wrong value through — the most
+alarming signal the product can produce. Until this query existed it was
+invisible in every number: outside the field accuracy population, outside the
+sample, and excluded from time saved because a human had touched the field.
+
+It is reported **beside** auto accept precision rather than folded into it, and
+deliberately so. A reviewer pressing Enter through auto accepted fields has not
+examined them, so counting those confirmations would inflate the ratio; counting
+only these corrections would deflate it. Either way the drawn sample stops being
+a fair estimate. The sample stays the unbiased number and this sits next to it,
+and it raises the warning regardless of how large the sample is — because it is
+evidence that does not depend on the sample being big enough to trust.
+
 ### Supporting: the settings these numbers were judged by
 
 ```sql
