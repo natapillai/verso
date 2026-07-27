@@ -1,9 +1,11 @@
 import { UploadForm } from "@/ui/upload-form";
 
 /*
-  Slice 01 only. This page exists so the deployed URL can be exercised: upload a
-  file, upload it again, see one document. The review screen in slice 03 is
-  where the design in specs/design.md gets built.
+  The way in. Upload a batch, then review each document.
+
+  Deliberately plain: specs/design.md spends its detail on the review screen,
+  which is the thing people use for hours. Slice 05 replaces this with something
+  a stranger can land on and understand.
 */
 export default function Page() {
   return (
@@ -13,6 +15,9 @@ export default function Page() {
         Upload invoices. A model fills the fields and a reviewer confirms them.
       </p>
       <UploadForm />
+      <p>
+        <a href="/accuracy">Accuracy</a>
+      </p>
     </main>
   );
 }
