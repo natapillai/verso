@@ -45,7 +45,7 @@ Three things make the number trustworthy rather than flattering:
   Tuning them next month cannot retroactively change what counted as accurate
   last month.
 
-## Five things worth looking at
+## Six things worth looking at
 
 1. **The queue.** The landing page lists every document with its batch and what
    it still wants from you, so the deployment is legible before you have uploaded
@@ -61,11 +61,17 @@ Three things make the number trustworthy rather than flattering:
    confirming is faster than typing: you are checking a value against a place, not
    hunting for it.
 4. **The accuracy view** at `/accuracy`. Three numbers, each traceable to one SQL
-   query in [docs/architecture.md](docs/architecture.md). Note what it refuses to
-   do: where nothing has been reviewed it prints `—` rather than `0`, and where
-   the sample is too small it declines to judge the threshold instead of raising
-   an alarm or an all-clear on a handful of draws.
-5. **Upload the same file twice.** One document, and a message saying so.
+   query in [docs/architecture.md](docs/architecture.md). It is currently telling
+   you that three auto accepted fields turned out to be wrong, and that supplier
+   name is the weakest of the eight. Note also what it refuses to do: where
+   nothing has been reviewed it prints `—` rather than `0`, because those are
+   opposite conclusions, and on a small sample it declines to judge the threshold
+   rather than sounding an all-clear on a handful of draws.
+5. **`rst-0012`, in the May intake.** No VAT number is printed on that page
+   anywhere, and the model returns an empty supplier tax ID at 95% confidence —
+   it is *sure the field is absent*, which is a different and far more useful
+   answer than a blank it could not read.
+6. **Upload the same file twice.** One document, and a message saying so.
    Identity is the sha256 of the content, so renaming it changes nothing.
 
 ## The numbers, and where they come from
@@ -79,35 +85,40 @@ which is the point — read `/accuracy` for the current ones.
 
 | | |
 |---|---|
-| Field accuracy | 100% over 11 fields a person actually looked at |
-| Auto accept precision | 100% over a sample of 11 |
-| Corrected outside the sample | 4 |
-| Time saved | 21m 45s over 87 fields nobody had to touch, at a 15s manual baseline |
+| Field accuracy | 91.7% over the 12 fields a person actually looked at |
+| Worst field | Supplier name, 66.7% — two right, one wrong |
+| Auto accept precision | 91.7% over a sample of 12, one of which was wrong |
+| Corrected outside the sample | 3 |
+| Time saved | 21m 0s over 84 fields nobody had to touch, at a 15s manual baseline |
 | Threshold / sample rate | 0.85 / 0.1 |
 
-Two 100% figures and, underneath them, four fields that were wrong. That is not a
-contradiction and it is the most useful thing on the page.
+Nothing on that page reads 100%, and it was not arranged that way. The seed
+confirms and corrects the same way a reviewer would, against whatever the model
+actually returned, so the numbers are whatever they are.
 
-**The four corrections are outside both percentages, by design.** They are fields
-the model was confident about, that were never drawn for verification, and that a
-reviewer opened and corrected anyway. They are not in field accuracy, because that
-population is fields a human was *asked* to check. They are not in the sample,
-because they were never drawn. So the page reports them beside the precision
-figure rather than folding them in — folding them in would bias the estimate in
-both directions at once, and the reasoning is in
-[docs/decisions.md](docs/decisions.md). What the page actually says is:
+**The interesting figure is the 3, not the 91.7%.** Those three fields were
+auto accepted, never drawn for verification, and corrected by a reviewer who
+opened them anyway. They sit outside both percentages by design — not in field
+accuracy, because that population is fields a human was *asked* to check, and not
+in the sample, because they were never drawn. Folding them into precision would
+bias the estimate in both directions at once, so the page reports them beside it
+and says what they mean:
 
-> 4 auto accepted fields turned out to be wrong when someone looked. The
+> 3 auto accepted fields turned out to be wrong when someone looked. The
 > threshold is letting errors through.
 
-**A sample of 11 is not enough to judge a threshold, and normally the page
+That is the product working. A confidence score of 0.99 on a wrong value is
+exactly the failure the whole design is arranged to catch, and here it is caught,
+counted, and stated on the page rather than absorbed into an average.
+
+**A sample of 12 is not enough to judge a threshold, and normally the page
 refuses to.** Twenty documents is 160 fields; at a 0.1 rate that is about 16
 draws, against the 30 set as the floor for trusting the figure, so it would
-ordinarily print "too few samples to judge the threshold" rather than a
-reassuring 100%. Here the four corrections outrank that and it raises the alarm
-instead — evidence of real errors does not need a large sample to be worth acting
-on. Raising the sample rate to make the demo look better would have produced a
-nicer screenshot and a worse product.
+ordinarily decline to judge rather than print a number. Here the three
+corrections outrank that and it raises the alarm instead — evidence of real
+errors does not need a large sample to be worth acting on. Raising the sample
+rate to make the demo look better would have produced a nicer screenshot and a
+worse product.
 
 **Time saved counts only fields nobody touched at all**, which is the strictest
 reading available, and the 15s manual baseline is printed next to the result so a
