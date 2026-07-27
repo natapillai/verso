@@ -158,9 +158,12 @@ pnpm dev
 pnpm seed
 ```
 
-Seeds twenty invoices through the running app. `pnpm seed -- --url https://…`
-points it at a deployment instead; it needs no database credentials because it
-only speaks HTTP.
+Seeds twenty invoices through the running app — laying each page out in HTML,
+photographing it in Chromium, then uploading, extracting, confirming and
+correcting through the same endpoints a reviewer's browser uses. It needs no
+database credentials because it only speaks HTTP, so
+`pnpm seed -- --url https://…` points it at a deployment. It does need the
+Playwright browser, which `pnpm exec playwright install chromium` provides.
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test
@@ -183,12 +186,17 @@ Vercel preview.
 2. **Calibrate the threshold against real volume.** 0.85 is a starting guess.
    `specs/extraction.md` wants a few hundred sampled fields before the number
    means anything, and the machinery to collect them is already running.
-3. **A Neon branch per pull request.** Previews currently share one database, so
+3. **Rasterise PDFs so they get the tether too.** A PDF is handed to the browser's
+   own viewer, which means no region outline and no line to it, because a
+   normalised box cannot be mapped onto a viewer that paginates and scales inside
+   its own frame. Rendering page one to an image on upload would put every
+   document on the same footing, at the cost of a PDF library.
+4. **A Neon branch per pull request.** Previews currently share one database, so
    two concurrent schema changes would collide, and the e2e specs write into the
    same database the demo corpus lives in.
-4. **More than one reviewer.** A handle picker and per-reviewer accuracy, which
+5. **More than one reviewer.** A handle picker and per-reviewer accuracy, which
    the schema already supports — corrections record who made them.
-5. **Line items.** Deliberately out of scope, and the honest next feature: it is
+6. **Line items.** Deliberately out of scope, and the honest next feature: it is
    where invoice extraction actually gets hard, because the field set stops being
    fixed.
 

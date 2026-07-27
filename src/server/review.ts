@@ -46,6 +46,7 @@ export type ReviewField = {
 export type ReviewDocument = {
   id: string;
   filename: string;
+  mimeType: string;
   state: string;
   batchSeq: number;
   batchLabel: string | null;
@@ -128,6 +129,9 @@ export async function loadReview(documentId: string): Promise<ReviewDocument | n
   return {
     id: document.id,
     filename: document.filename,
+    // The panel needs to know whether it can put this in an <img>. A PDF cannot
+    // go in one, and a browser renders nothing at all rather than complaining.
+    mimeType: document.mimeType,
     state: document.state,
     batchSeq: batch?.seq ?? 0,
     batchLabel: batch?.label ?? null,

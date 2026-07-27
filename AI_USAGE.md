@@ -70,6 +70,17 @@ screen whose entire premise is eight Enters and one Cmd Enter, that is the bug
 that matters most, and it survived three slices of manual testing because every
 manual test clicked before typing.
 
+**Twenty seeded documents the review screen could not display.**
+The worst one. The seed produced PDFs; the document panel puts the file in an
+`<img>`, and no browser renders a PDF that way — it shows a broken image and
+raises nothing. So the deployed URL had twenty documents whose entire left half
+was blank, and the tether, the element the design spec singles out as the one
+worth spending effort on, had nothing to draw against. Every layer was tested
+except the one where they met: the seed was verified by reading the database and
+the accuracy page, and the review screen was only ever exercised with the PNG
+fixture from the browser specs. Nobody opened a seeded document and looked at it
+until the person I was building it for did.
+
 **Two seeded documents that were supposed to be hard to read and were not.**
 They printed pale grey text at a small size. Average confidence came back 0.990,
 identical to the other eighteen, and not one field was flagged. Faintness is a
