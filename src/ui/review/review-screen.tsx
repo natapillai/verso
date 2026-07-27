@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Route } from "next";
 import type { ReviewDocument, ReviewField } from "@/server/review";
 import { DocumentPanel, type DocumentPanelHandle } from "./document-panel";
@@ -281,7 +282,18 @@ export function ReviewScreen({
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex items-baseline justify-between gap-4 border-b border-rule bg-panel px-6 py-3">
-        <span className="font-display text-h2">VERSO</span>
+        {/*
+          The way back. Without it the only exit from a document is the browser's
+          back button, which is not somewhere a reviewer should have to look for
+          a control the product should own.
+        */}
+        <Link
+          href="/"
+          title="Back to the queue"
+          className="font-display text-h2 underline-offset-4 hover:underline"
+        >
+          VERSO
+        </Link>
         <span className="text-small text-muted">
           Batch {review.batchSeq}
           {review.batchLabel ? ` · ${review.batchLabel}` : ""}
@@ -308,6 +320,7 @@ export function ReviewScreen({
           ref={panelRef}
           documentId={review.id}
           filename={review.filename}
+          mimeType={review.mimeType}
           focused={focused}
           onViewportChange={() => setTick((t) => t + 1)}
         />

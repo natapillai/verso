@@ -407,3 +407,47 @@ keeps its id, its name, its `required` and its label and does all the work; a
 label styled as a button sits in its place, and the focus ring is drawn on that
 label through `peer-focus-visible` so the quality floor still holds. Playwright's
 `setInputFiles` works on it unchanged, which is what kept both specs passing.
+
+## Slice 07, the page a reviewer actually sees
+
+**The seeded documents are rendered images, not generated PDFs.**
+This reverses the slice 05 decision directly above, and the reason is not taste.
+The document panel puts the file in an `<img>`, and no browser renders a PDF that
+way — it shows a broken image and reports nothing. So every one of the twenty
+seeded documents produced an empty left panel on the deployed URL, and the
+tether, which `specs/design.md` calls the one place to spend effort, had nothing
+to draw against. The PDFs were chosen for size and for their text layer, and
+never once checked against the screen that had to display them.
+
+The pages are laid out in HTML and photographed in Chromium, which adds no
+dependency because Playwright is already here for the browser specs, and which
+produces something that looks like a page rather than like output from a script.
+`scripts/invoice-pdf.mjs` is deleted rather than left sitting unused.
+
+What this gives up is the text layer, and with it the only real exercise the
+regex fallback had outside its unit tests. Recorded in `docs/architecture.md`
+rather than glossed. What it buys is the product working: region outlines, the
+tether, zoom, and the browser downscale path all run against the demo corpus now,
+and none of them did before.
+
+**A PDF is given to the browser's own viewer, and gets no region box.**
+PDFs remain an accepted upload, so the panel has to handle one. The native viewer
+paginates and scales inside its own frame, so a normalised bounding box cannot be
+mapped onto it honestly. `specs/design.md` would rather the tether degrade than
+be faked, which it already does below 1000px, so the same applies here: no line,
+no box, and the focused field is still named in the text alternative. The zoom
+controls are hidden for a PDF too, because the viewer brings its own and two sets
+of controls with one of them inert is worse than one.
+
+**The wordmark goes home.**
+There was no way out of a document except the browser's back button. A reviewer
+should not have to leave the product's own controls to do something the product
+should own. It is `next/link` rather than an anchor, which the lint rule insists
+on and which keeps the queue a client navigation.
+
+**The invoices carry a bank block and a bill-to.**
+Partly because a page with eight fields and nothing else does not look like an
+invoice, and partly because a sort code and an account number put a second run of
+digits a short distance from the VAT number. Reading `supplier_tax_id` off a page
+where it is the only long number is not the task; reading it off a page with three
+is.

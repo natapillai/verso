@@ -228,9 +228,10 @@ largest single gap between the specs and the repository.
 The regexes in `src/extract/fallback.ts` are implemented and tested, but with no
 OCR step by design an image gives them nothing, so for a photographed invoice the
 fallback returns eight flagged empty fields. That still satisfies success
-criterion 4 — every field reaches a reviewer flagged — and the regexes do real
-work on the seeded PDFs, which carry a text layer. Before slice 05 they had never
-been given any text at all outside their unit tests.
+criterion 4 — every field reaches a reviewer flagged — but it means the regexes
+have never run against anything but their unit tests. They briefly had a text
+layer to work on when the seed produced PDFs; the seed produces images now, for
+reasons below, and that took the only real text source with it.
 
 **`initial_status` arrived as a second migration.**
 In slice 01 the schema was declared complete, with the reasoning that later slices
@@ -247,7 +248,16 @@ model calls. It also caught the thing hand-seeding never would have: until slice
 never against rows written by the review path.
 
 **The recorded image width tells you which path a document took.**
-`extractions.image_width` is 1600 for every uploaded photograph, because the
-browser redraws anything wider, and null for every seeded PDF, because there is no
-canvas path for one. Two populations in one column, and worth knowing before
-reading it as a measure of anything.
+`extractions.image_width` is 1600 for anything a browser uploaded, because the
+browser redraws anything wider than that, and the rendered width for anything
+posted straight to the API — the seed does not downscale, since it is not a
+browser. Null means a PDF, which has no canvas path. Worth knowing before reading
+the column as a measure of anything.
+
+**The document panel could not display a PDF, and for a while every seeded
+document was one.**
+The panel puts the file in an `<img>`, which renders nothing for a PDF and fails
+silently — a broken image where the page should be. The seeded corpus was PDFs,
+so every review screen on the deployment was empty on the left and the tether had
+nothing to draw against. Fixed in two places: the panel now gives a PDF to the
+browser's own viewer, and the seed renders images.

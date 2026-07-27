@@ -16,7 +16,7 @@
   specs/product.md wants the deployed URL never empty. This is that.
 */
 
-import { invoicePdf } from "./invoice-pdf.mjs";
+import { renderInvoices } from "./invoice-image.mjs";
 import { INVOICES } from "./invoices.mjs";
 
 const url = argValue("--url") ?? "http://localhost:3000";
@@ -75,14 +75,13 @@ async function send(path, init) {
 }
 
 /** One request carrying every invoice in a batch, which is what makes it a batch. */
-async function uploadBatch(invoices, label) {
+async function uploadBatch(invoices, label, images) {
   const form = new FormData();
   form.append("label", label);
 
-  for (const invoice of invoices) {
-    const pdf = invoicePdf(invoice);
-    const name = `${invoice.invoiceNumber.toLowerCase()}.pdf`;
-    form.append("file", new File([pdf], name, { type: "application/pdf" }));
+  for (const [index, invoice] of invoices.entries()) {
+    const name = `${invoice.invoiceNumber.toLowerCase()}.png`;
+    form.append("file", new File([images[index]], name, { type: "image/png" }));
   }
 
   const result = await send("/api/upload", { method: "POST", body: form });
@@ -160,6 +159,10 @@ async function main() {
   console.log(`Seeding ${url}`);
   console.log(`${INVOICES.length} invoices\n`);
 
+  // One browser for all twenty pages; launching Chromium is the slow part.
+  console.log("Rendering the pages");
+  const rendered = await renderInvoices(INVOICES);
+
   const documents = [];
   let from = 0;
 
@@ -168,7 +171,11 @@ async function main() {
     if (slice.length === 0) continue;
 
     console.log(`${batch.label}, ${slice.length} invoices`);
-    const uploaded = await uploadBatch(slice, batch.label);
+    const uploaded = await uploadBatch(
+      slice,
+      batch.label,
+      rendered.slice(from, from + slice.length),
+    );
 
     for (const [offset, invoice] of slice.entries()) {
       const position = from + offset + 1;

@@ -70,6 +70,17 @@ screen whose entire premise is eight Enters and one Cmd Enter, that is the bug
 that matters most, and it survived three slices of manual testing because every
 manual test clicked before typing.
 
+**Twenty seeded documents the review screen could not display.**
+The worst one. The seed produced PDFs; the document panel puts the file in an
+`<img>`, and no browser renders a PDF that way — it shows a broken image and
+raises nothing. So the deployed URL had twenty documents whose entire left half
+was blank, and the tether, the element the design spec singles out as the one
+worth spending effort on, had nothing to draw against. Every layer was tested
+except the one where they met: the seed was verified by reading the database and
+the accuracy page, and the review screen was only ever exercised with the PNG
+fixture from the browser specs. Nobody opened a seeded document and looked at it
+until the person I was building it for did.
+
 **Two seeded documents that were supposed to be hard to read and were not.**
 They printed pale grey text at a small size. Average confidence came back 0.990,
 identical to the other eighteen, and not one field was flagged. Faintness is a
@@ -78,10 +89,15 @@ what the model received was faint. It looked convincing in a screenshot and was
 measuring nothing. Redesigned around genuine ambiguity — the same reference struck
 twice at identical coordinates, a truncated year, three competing totals.
 
-**A shell command handed over that could not work.**
-A `gh api` invocation for branch protection built nested JSON with repeated `-f`
-flags, which that flag cannot do. It was run, it failed, and the correction was
-`--input` with a JSON file. Cost about ten minutes of someone else's time.
+**Shell commands handed over that could not work. Twice, both branch protection.**
+The first built nested JSON with repeated `-f` flags, which that flag cannot do.
+The second fixed that with `--input -` and a `<<<` here-string — bash syntax,
+handed to someone whose shell is PowerShell, where it is a parse error. Both were
+run, both failed, and the second was reported back as a working directory problem,
+which it was not. The fix that holds in either shell is `--input <file>`. The
+lesson is narrow and worth stating: a command written for someone else to run has
+to match the shell they actually have, and this project has said "Shell:
+PowerShell" at the top of every session.
 
 ## Wrong diagnoses, which is a different failure
 

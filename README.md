@@ -45,7 +45,7 @@ Three things make the number trustworthy rather than flattering:
   Tuning them next month cannot retroactively change what counted as accurate
   last month.
 
-## Five things worth looking at
+## Six things worth looking at
 
 1. **The queue.** The landing page lists every document with its batch and what
    it still wants from you, so the deployment is legible before you have uploaded
@@ -61,11 +61,17 @@ Three things make the number trustworthy rather than flattering:
    confirming is faster than typing: you are checking a value against a place, not
    hunting for it.
 4. **The accuracy view** at `/accuracy`. Three numbers, each traceable to one SQL
-   query in [docs/architecture.md](docs/architecture.md). Note what it refuses to
-   do: where nothing has been reviewed it prints `—` rather than `0`, and where
-   the sample is too small it declines to judge the threshold instead of raising
-   an alarm or an all-clear on a handful of draws.
-5. **Upload the same file twice.** One document, and a message saying so.
+   query in [docs/architecture.md](docs/architecture.md). It is currently telling
+   you that three auto accepted fields turned out to be wrong, and that supplier
+   name is the weakest of the eight. Note also what it refuses to do: where
+   nothing has been reviewed it prints `—` rather than `0`, because those are
+   opposite conclusions, and on a small sample it declines to judge the threshold
+   rather than sounding an all-clear on a handful of draws.
+5. **`rst-0012`, in the May intake.** No VAT number is printed on that page
+   anywhere, and the model returns an empty supplier tax ID at 95% confidence —
+   it is *sure the field is absent*, which is a different and far more useful
+   answer than a blank it could not read.
+6. **Upload the same file twice.** One document, and a message saying so.
    Identity is the sha256 of the content, so renaming it changes nothing.
 
 ## The numbers, and where they come from
@@ -74,34 +80,45 @@ Measured from the seeded corpus of twenty invoices, which were uploaded,
 extracted, reviewed and corrected through the product's own HTTP API — not
 inserted. `scripts/seed.mjs` does the same things a reviewer's browser does.
 
-<!--
-  Re-read /accuracy after seeding production and replace this block. The figures
-  move as anyone uses the deployment, which is the point.
--->
+These are the figures on the deployment as seeded. They move as anyone uses it,
+which is the point — read `/accuracy` for the current ones.
 
 | | |
 |---|---|
-| Field accuracy | 100% over 14 fields a person actually looked at |
-| Auto accept precision | 100% over a sample of 14 |
-| Corrected outside the sample | 4 |
-| Time saved | 20m 45s over 83 fields nobody had to touch, at a 15s manual baseline |
+| Field accuracy | 91.7% over the 12 fields a person actually looked at |
+| Worst field | Supplier name, 66.7% — two right, one wrong |
+| Auto accept precision | 91.7% over a sample of 12, one of which was wrong |
+| Corrected outside the sample | 3 |
+| Time saved | 21m 0s over 84 fields nobody had to touch, at a 15s manual baseline |
 | Threshold / sample rate | 0.85 / 0.1 |
 
-Three things about that table are more interesting than the percentages.
+Nothing on that page reads 100%, and it was not arranged that way. The seed
+confirms and corrects the same way a reviewer would, against whatever the model
+actually returned, so the numbers are whatever they are.
 
-**A sample of 14 is not enough to judge anything, and the page says so.** Twenty
-documents is 160 fields; at a 0.1 sample rate that is about 16 draws, against the
-30 set as the floor for trusting the figure. The page prints "too few samples to
-judge the threshold" rather than a reassuring 100%. Raising the sample rate for
-the demo would have produced a better looking screenshot and a worse product.
+**The interesting figure is the 3, not the 91.7%.** Those three fields were
+auto accepted, never drawn for verification, and corrected by a reviewer who
+opened them anyway. They sit outside both percentages by design — not in field
+accuracy, because that population is fields a human was *asked* to check, and not
+in the sample, because they were never drawn. Folding them into precision would
+bias the estimate in both directions at once, so the page reports them beside it
+and says what they mean:
 
-**"Corrected outside the sample: 4" is the most useful number on the page.** Those
-are fields the model was confident about, that were never drawn for verification,
-and that a reviewer opened and corrected anyway. Each one is direct evidence that
-the threshold is letting errors through. They are reported beside auto accept
-precision rather than folded into it, because folding them in would bias the
-estimate in both directions at once — reasoning in
-[docs/decisions.md](docs/decisions.md).
+> 3 auto accepted fields turned out to be wrong when someone looked. The
+> threshold is letting errors through.
+
+That is the product working. A confidence score of 0.99 on a wrong value is
+exactly the failure the whole design is arranged to catch, and here it is caught,
+counted, and stated on the page rather than absorbed into an average.
+
+**A sample of 12 is not enough to judge a threshold, and normally the page
+refuses to.** Twenty documents is 160 fields; at a 0.1 rate that is about 16
+draws, against the 30 set as the floor for trusting the figure, so it would
+ordinarily decline to judge rather than print a number. Here the three
+corrections outrank that and it raises the alarm instead — evidence of real
+errors does not need a large sample to be worth acting on. Raising the sample
+rate to make the demo look better would have produced a nicer screenshot and a
+worse product.
 
 **Time saved counts only fields nobody touched at all**, which is the strictest
 reading available, and the 15s manual baseline is printed next to the result so a
@@ -152,9 +169,12 @@ pnpm dev
 pnpm seed
 ```
 
-Seeds twenty invoices through the running app. `pnpm seed -- --url https://…`
-points it at a deployment instead; it needs no database credentials because it
-only speaks HTTP.
+Seeds twenty invoices through the running app — laying each page out in HTML,
+photographing it in Chromium, then uploading, extracting, confirming and
+correcting through the same endpoints a reviewer's browser uses. It needs no
+database credentials because it only speaks HTTP, so
+`pnpm seed -- --url https://…` points it at a deployment. It does need the
+Playwright browser, which `pnpm exec playwright install chromium` provides.
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test
@@ -177,12 +197,17 @@ Vercel preview.
 2. **Calibrate the threshold against real volume.** 0.85 is a starting guess.
    `specs/extraction.md` wants a few hundred sampled fields before the number
    means anything, and the machinery to collect them is already running.
-3. **A Neon branch per pull request.** Previews currently share one database, so
+3. **Rasterise PDFs so they get the tether too.** A PDF is handed to the browser's
+   own viewer, which means no region outline and no line to it, because a
+   normalised box cannot be mapped onto a viewer that paginates and scales inside
+   its own frame. Rendering page one to an image on upload would put every
+   document on the same footing, at the cost of a PDF library.
+4. **A Neon branch per pull request.** Previews currently share one database, so
    two concurrent schema changes would collide, and the e2e specs write into the
    same database the demo corpus lives in.
-4. **More than one reviewer.** A handle picker and per-reviewer accuracy, which
+5. **More than one reviewer.** A handle picker and per-reviewer accuracy, which
    the schema already supports — corrections record who made them.
-5. **Line items.** Deliberately out of scope, and the honest next feature: it is
+6. **Line items.** Deliberately out of scope, and the honest next feature: it is
    where invoice extraction actually gets hard, because the field set stops being
    fixed.
 
