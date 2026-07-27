@@ -3,9 +3,13 @@
 /*
   The whole colour system, from specs/design.md. Six tokens, declared once,
   under the names the spec uses so the spec and the stylesheet read side by
-  side. --mark is for corrections only: the outline of a focused field's
-  region, the left edge of a corrected field, and the correction count on the
-  accuracy view. Nowhere else.
+  side. --mark is for corrections only: the left edge of a corrected field and
+  the correction count on the accuracy view. Nowhere else.
+
+  specs/design.md names three places. The third was the outline of a focused
+  field's region on the document, which is gone with the tether — the model
+  locates a value correctly 10% of the time, so the outline was confidently
+  wrong. Two uses, not three, and fewer is the safe direction to miss in.
 */
 :root {
   --ground: #eef0ec;

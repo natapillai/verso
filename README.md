@@ -56,10 +56,13 @@ Three things make the number trustworthy rather than flattering:
    around — the shortcut sheet is on `?`. Confidence is shown as the weight of the
    left edge of each field, never as colour, so the one coloured thing on screen
    means one thing: a value a human changed.
-3. **The tether.** Focus a field and a line connects it to where that value sits
-   on the page. It follows the document as you scroll and zoom. It is the reason
-   confirming is faster than typing: you are checking a value against a place, not
-   hunting for it.
+3. **What is deliberately not there.** The design called for a tether — a line
+   from the focused field to that value's region on the page. It was built, and
+   then `pnpm eval:boxes` measured it: the model's boxes land on the value **10%
+   of the time**, and Sonnet scores 0% on the same pages. A confident red outline
+   that is wrong nine times in ten does the opposite of what the tether was for,
+   so it was removed. The harness, the number, and the rejected alternatives are
+   in [docs/decisions.md](docs/decisions.md).
 4. **The accuracy view** at `/accuracy`. Three numbers, each traceable to one SQL
    query in [docs/architecture.md](docs/architecture.md). It is currently telling
    you that three auto accepted fields turned out to be wrong, and that supplier
@@ -177,6 +180,14 @@ database credentials because it only speaks HTTP, so
 Playwright browser, which `pnpm exec playwright install chromium` provides.
 
 ```bash
+pnpm eval:boxes
+```
+
+Scores the model on where it says each value is, against where the generated page
+actually put it. This is the only ground truth in the project, and it is what
+established that the region outlines were wrong.
+
+```bash
 pnpm typecheck && pnpm lint && pnpm test
 ```
 
@@ -197,11 +208,14 @@ Vercel preview.
 2. **Calibrate the threshold against real volume.** 0.85 is a starting guess.
    `specs/extraction.md` wants a few hundred sampled fields before the number
    means anything, and the machinery to collect them is already running.
-3. **Rasterise PDFs so they get the tether too.** A PDF is handed to the browser's
-   own viewer, which means no region outline and no line to it, because a
-   normalised box cannot be mapped onto a viewer that paginates and scales inside
-   its own frame. Rendering page one to an image on upload would put every
-   document on the same footing, at the cost of a PDF library.
+3. **Locate values properly, and bring the tether back.** Asking a vision model
+   for coordinates in prose does not work — that is measured, not assumed. What
+   would work is giving it something to match against: a text layer for PDFs, or
+   OCR word boxes for images, so the value the model read can be found on the
+   page by string match rather than by the model's own guess at where it was
+   looking. The spec ruled out an OCR step, correctly, for a three-day build. It
+   is the first thing I would add on day four, because it is the difference
+   between the tool telling you where to look and the tool making you find it.
 4. **A Neon branch per pull request.** Previews currently share one database, so
    two concurrent schema changes would collide, and the e2e specs write into the
    same database the demo corpus lives in.

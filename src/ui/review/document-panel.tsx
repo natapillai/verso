@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ReviewField } from "@/server/review";
 
 /*
@@ -11,166 +11,123 @@ import type { ReviewField } from "@/server/review";
   reach. Zoom is fit, minus, plus — exactly the three controls in the mockup.
   TASKS.md has zoom second on the cut list, so it stays small on purpose.
 
-  No colour is spent here. The focused region's outline is drawn by the tether
-  overlay, so the line and the box share one coordinate space.
+  No colour is spent here, and no region is outlined. `pnpm eval:boxes` measures
+  the model's bounding boxes against where the values really are and finds that
+  10% of them land on the value, so drawing one would send the reviewer to the
+  wrong part of the page with a straight face. See docs/decisions.md.
 */
-
-export type DocumentPanelHandle = {
-  /** Below 1000px the tether cannot be drawn, so the region is scrolled to instead. */
-  scrollToField: (field: ReviewField) => void;
-  /** The tether measures against the rendered page. */
-  getImage: () => HTMLImageElement | null;
-};
 
 type Props = {
   documentId: string;
   filename: string;
   mimeType: string;
   focused: ReviewField | null;
-  /** Told whenever the image moves, so the tether can be redrawn. */
-  onViewportChange: () => void;
 };
 
 const ZOOM_STEP = 0.25;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 
-export const DocumentPanel = forwardRef<DocumentPanelHandle, Props>(
-  function DocumentPanel(
-    { documentId, filename, mimeType, focused, onViewportChange },
-    ref,
-  ) {
-    const isPdf = mimeType === "application/pdf";
-    const [zoom, setZoom] = useState(1);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const imageRef = useRef<HTMLImageElement>(null);
+export function DocumentPanel({ documentId, filename, mimeType, focused }: Props) {
+  const isPdf = mimeType === "application/pdf";
+  const [zoom, setZoom] = useState(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-    useImperativeHandle(ref, () => ({
-      scrollToField(field) {
-        const image = imageRef.current;
-        const scroller = scrollRef.current;
-        if (!image || !scroller || !field.box) return;
+  function changeZoom(next: number) {
+    setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
+  }
 
-        const top = image.offsetTop + field.box.y0 * image.clientHeight;
-        scroller.scrollTo({
-          top: top - scroller.clientHeight / 2,
-          behavior: "smooth",
-        });
-      },
-      getImage: () => imageRef.current,
-    }));
+  return (
+    <section
+      className="flex min-h-0 flex-col border-rule lg:border-r"
+      aria-label="Document"
+    >
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto bg-ground p-6">
+        {/*
+          A PDF gets the browser's own viewer. It cannot go in an <img> — no
+          browser renders one that way, and it fails silently, showing a broken
+          image rather than an error. The seeded corpus is images for exactly
+          that reason, but a PDF is an accepted upload and has to work.
 
-    function changeZoom(next: number) {
-      setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
-      // The image resizes on the next paint; let the tether catch up after it.
-      requestAnimationFrame(onViewportChange);
-    }
+          Nothing is outlined over it either, but that is no longer specific to
+          PDFs — see the note at the top of this file.
+        */}
+        {isPdf ? (
+          <object
+            data={`/api/documents/${documentId}/file`}
+            type="application/pdf"
+            aria-label={`Page of ${filename}`}
+            className="mx-auto block h-full w-full bg-panel"
+          >
+            <p className="p-6 text-small">
+              This browser will not display the page.{" "}
+              <a
+                href={`/api/documents/${documentId}/file`}
+                className="underline underline-offset-2"
+              >
+                Open {filename}
+              </a>{" "}
+              to read it alongside the fields.
+            </p>
+          </object>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element --
+             next/image wants a known width and a loader; this is a private blob
+             streamed through a route, at a size only the browser knows. */
+          <img
+            id="review-document-image"
+            src={`/api/documents/${documentId}/file`}
+            alt={`Page of ${filename}`}
+            // maxWidth none because Tailwind's preflight caps images at 100% of
+            // their container, which would silently pin zoom at fit.
+            style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
+            className="mx-auto block bg-panel shadow-[0_1px_0_var(--rule)]"
+          />
+        )}
+      </div>
 
-    return (
-      <section
-        className="flex min-h-0 flex-col border-rule lg:border-r"
-        aria-label="Document"
-      >
-        <div
-          ref={scrollRef}
-          onScroll={onViewportChange}
-          className="min-h-0 flex-1 overflow-auto bg-ground p-6"
-        >
-          {/*
-            A PDF gets the browser's own viewer. It cannot go in an <img> — no
-            browser renders one that way, and it fails silently, showing a broken
-            image rather than an error. The seeded corpus is images for exactly
-            that reason, but a PDF is an accepted upload and has to work.
+      <div className="flex items-center justify-between border-t border-rule bg-panel px-6 py-3">
+        <span className="font-data text-micro text-muted">page 1 of 1</span>
 
-            The tether does not draw a region box over this. The native viewer
-            paginates and scales inside its own frame, so a normalised box cannot
-            be mapped onto it honestly, and specs/design.md would rather degrade
-            than fake the one element the product is built around. The field is
-            still named in the text alternative below.
-          */}
-          {isPdf ? (
-            <object
-              data={`/api/documents/${documentId}/file`}
-              type="application/pdf"
-              aria-label={`Page of ${filename}`}
-              className="mx-auto block h-full w-full bg-panel"
-            >
-              <p className="p-6 text-small">
-                This browser will not display the page.{" "}
-                <a
-                  href={`/api/documents/${documentId}/file`}
-                  className="underline underline-offset-2"
-                >
-                  Open {filename}
-                </a>{" "}
-                to read it alongside the fields.
-              </p>
-            </object>
-          ) : (
-            /* eslint-disable-next-line @next/next/no-img-element --
-               next/image wants a known width and a loader; this is a private blob
-               streamed through a route, at a size only the browser knows. */
-            <img
-              ref={imageRef}
-              id="review-document-image"
-              src={`/api/documents/${documentId}/file`}
-              alt={`Page of ${filename}`}
-              onLoad={onViewportChange}
-              // maxWidth none because Tailwind's preflight caps images at 100% of
-              // their container, which would silently pin zoom at fit.
-              style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
-              className="mx-auto block bg-panel shadow-[0_1px_0_var(--rule)]"
-            />
-          )}
+        {/* The PDF viewer brings its own zoom; two sets of controls doing the
+            same job, one of them inert, is worse than one. */}
+        <div className={`flex items-center gap-1 ${isPdf ? "hidden" : ""}`}>
+          <button
+            type="button"
+            onClick={() => changeZoom(1)}
+            className="px-3 py-1 text-small text-muted hover:text-ink"
+          >
+            fit
+          </button>
+          <button
+            type="button"
+            onClick={() => changeZoom(zoom - ZOOM_STEP)}
+            aria-label="Zoom out"
+            className="px-3 py-1 text-small text-muted hover:text-ink"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => changeZoom(zoom + ZOOM_STEP)}
+            aria-label="Zoom in"
+            className="px-3 py-1 text-small text-muted hover:text-ink"
+          >
+            +
+          </button>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between border-t border-rule bg-panel px-6 py-3">
-          <span className="font-data text-micro text-muted">page 1 of 1</span>
-
-          {/* The PDF viewer brings its own zoom; two sets of controls doing the
-              same job, one of them inert, is worse than one. */}
-          <div className={`flex items-center gap-1 ${isPdf ? "hidden" : ""}`}>
-            <button
-              type="button"
-              onClick={() => changeZoom(1)}
-              className="px-3 py-1 text-small text-muted hover:text-ink"
-            >
-              fit
-            </button>
-            <button
-              type="button"
-              onClick={() => changeZoom(zoom - ZOOM_STEP)}
-              aria-label="Zoom out"
-              className="px-3 py-1 text-small text-muted hover:text-ink"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={() => changeZoom(zoom + ZOOM_STEP)}
-              aria-label="Zoom in"
-              className="px-3 py-1 text-small text-muted hover:text-ink"
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* The region outline lives in the tether overlay so it shares one
-            coordinate space with the line. See tether.tsx. */}
-        <span className="sr-only" aria-live="polite">
-          {!focused
-            ? ""
-            : isPdf
-              ? `${labelFor(focused.name)} is on the page. Regions are not outlined on a PDF.`
-              : focused.box
-                ? `${labelFor(focused.name)} is highlighted on the page.`
-                : `${labelFor(focused.name)} was not located on the page.`}
-        </span>
-      </section>
-    );
-  },
-);
+      {/* specs/design.md's quality floor asks the region outline to have a text
+          alternative. There is no outline now, so this says what is true. */}
+      <span className="sr-only" aria-live="polite">
+        {focused
+          ? `${labelFor(focused.name)} is focused. The page is shown alongside it.`
+          : ""}
+      </span>
+    </section>
+  );
+}
 
 function labelFor(name: string): string {
   return name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());

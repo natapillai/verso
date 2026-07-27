@@ -15,8 +15,9 @@ import type { ReviewField } from "@/server/review";
     confirmed       none, it is settled
     corrected       --mark
 
-  That last one is the second and final use of --mark in this slice. Colour is
-  reserved so the one red thing on the screen means something.
+  That last one is one of only two uses of --mark left in the product, the other
+  being the correction count on the accuracy view. Colour is reserved so the one
+  red thing on the screen means something.
 */
 
 import { FIELD_LABELS } from "@/ui/field-labels";

@@ -5,26 +5,28 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import type { ReviewDocument, ReviewField } from "@/server/review";
-import { DocumentPanel, type DocumentPanelHandle } from "./document-panel";
+import { DocumentPanel } from "./document-panel";
 import { FieldColumn } from "./field-column";
 import { ShortcutSheet } from "./shortcut-sheet";
-import { Tether } from "./tether";
 import { useReviewKeyboard } from "./use-review-keyboard";
 
 /*
   The review screen.
 
-  Document left, fields right, roughly three to two. Below 1000px they stack and
-  the tether degrades to a scroll plus an outline, which specs/design.md asks for
-  rather than faking a line across a stacked layout.
+  Document left, fields right, roughly three to two. Below 1000px they stack.
+
+  specs/design.md puts a tether here: a line from the focused field to that
+  value's region on the page, called out as the one place to spend effort. It was
+  built, and it is gone. `pnpm eval:boxes` measures the boxes it drew against
+  where the values really are, and 10% of them land on the value. A confident
+  outline that is wrong nine times in ten does the opposite of what the tether
+  was for. See docs/decisions.md.
 
   The path this is built around: eight Enters and one Cmd Enter. Confirmations
   are applied locally the moment they are pressed and reconciled with the server
   afterwards, because waiting on a round trip between Enters would put latency
   into the only interaction that is measured.
 */
-
-const STACK_BELOW = 1000;
 
 /** Statuses that still owe the reviewer attention. Invariant 3. */
 function isOutstanding(field: ReviewField): boolean {
@@ -46,12 +48,9 @@ export function ReviewScreen({
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [tick, setTick] = useState(0);
-  const [stacked, setStacked] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<(HTMLLIElement | null)[]>([]);
-  const panelRef = useRef<DocumentPanelHandle>(null);
   /** Guards the Enter-then-blur double commit. See commitEdit. */
   const committing = useRef(false);
 
@@ -76,26 +75,6 @@ export function ReviewScreen({
   }, []);
 
   const focused = fields[focusedIndex] ?? null;
-
-  useEffect(() => {
-    const query = window.matchMedia(`(max-width: ${STACK_BELOW - 1}px)`);
-    const sync = () => setStacked(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-
-    const onResize = () => setTick((t) => t + 1);
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      query.removeEventListener("change", sync);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
-
-  // Stacked layouts get a scroll to the region instead of a line to it.
-  useEffect(() => {
-    if (stacked && focused) panelRef.current?.scrollToField(focused);
-  }, [stacked, focused]);
 
   /*
     Land with the first field focused.
@@ -130,18 +109,6 @@ export function ReviewScreen({
     if (wasEditing.current && !editing) focusRow(focusedIndexRef.current);
     wasEditing.current = editing;
   }, [editing, focusRow]);
-
-  /*
-    Handed to the tether and called inside its layout effect, never during
-    render: refs are empty on the first pass, and reading them there would leave
-    the line undrawn until something unrelated re-rendered.
-  */
-  const getTetherElements = useCallback(() => {
-    const row = rowRefs.current[focusedIndex];
-    const image = panelRef.current?.getImage() ?? null;
-    if (!row || !image) return null;
-    return { image, row };
-  }, [focusedIndex]);
 
   const patch = useCallback((index: number, next: Partial<ReviewField>) => {
     setFields((current) =>
@@ -317,12 +284,10 @@ export function ReviewScreen({
         className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[3fr_2fr]"
       >
         <DocumentPanel
-          ref={panelRef}
           documentId={review.id}
           filename={review.filename}
           mimeType={review.mimeType}
           focused={focused}
-          onViewportChange={() => setTick((t) => t + 1)}
         />
 
         <FieldColumn
@@ -341,13 +306,6 @@ export function ReviewScreen({
           onBeginEdit={beginEdit}
           onConfirmAll={confirmAll}
           onComplete={() => void complete()}
-        />
-
-        <Tether
-          getElements={getTetherElements}
-          field={focused}
-          tick={tick}
-          stacked={stacked}
         />
       </div>
 

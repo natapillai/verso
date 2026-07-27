@@ -37,6 +37,10 @@ export async function GET(
       value: field.value,
       confidence: field.confidence,
       status: field.status,
+      // scripts/box-eval.mjs compares this against where the value really is.
+      // Leaving it out cost an afternoon: the eval read undefined and reported
+      // that the model had placed no boxes at all, when it had placed them fine.
+      box: field.box,
     })),
   });
 }

@@ -32,6 +32,18 @@ function escape(value) {
 }
 
 /*
+  Wraps a printed value so its true position on the page can be read back.
+
+  The span carries no styling and changes nothing about the render. It is what
+  makes `pnpm eval:boxes` possible: the model is asked where a value is, and the
+  page can be asked where it really is, so the answer is measurable instead of a
+  matter of opinion. Without it there is no ground truth anywhere in this project.
+*/
+function v(field, text) {
+  return `<span class="v" data-field="${field}">${escape(text)}</span>`;
+}
+
+/*
   Ambiguity, per specs/extraction.md's awkward cases. Not faint ink — faintness
   is a property of a rasterised page and says nothing to a model reading a clean
   render. What makes a page genuinely hard is two plausible answers: an
@@ -41,9 +53,9 @@ function escape(value) {
 function ambiguousBlocks(invoice) {
   return `
     <div class="muddle">
-      <div class="ref">${escape(invoice.invoiceNumber)}</div>
+      <div class="ref">${v("invoice_number", invoice.invoiceNumber)}</div>
       <div class="ref overstruck">${escape(invoice.invoiceNumber)}</div>
-      <div class="loose">${escape(invoice.issueDate)}</div>
+      <div class="loose">${v("issue_date", invoice.issueDate)}</div>
       <div class="loose">Ref ${escape(invoice.taxId.slice(0, -1))}</div>
     </div>`;
 }
@@ -75,20 +87,20 @@ function totalsRows(invoice) {
 
   if (!invoice.ambiguous) {
     return `
-      <tr><td>Subtotal</td><td>${escape(invoice.subtotal)}</td></tr>
+      <tr><td>Subtotal</td><td>${v("subtotal", invoice.subtotal)}</td></tr>
       <tr><td>VAT 20%</td><td>${escape(invoice.vat)}</td></tr>
-      <tr class="grand"><td>Total</td><td>${escape(invoice.total)}</td></tr>`;
+      <tr class="grand"><td>Total</td><td>${v("total", invoice.total)}</td></tr>`;
   }
 
   // Three amounts, two of them called something that sounds final.
   return `
-      <tr><td>Subtotal</td><td>${escape(invoice.subtotal)}</td></tr>
+      <tr><td>Subtotal</td><td>${v("subtotal", invoice.subtotal)}</td></tr>
       <tr><td>VAT 20%</td><td>${escape(invoice.vat)}</td></tr>
-      <tr class="grand"><td>Total</td><td>${escape(invoice.total)}</td></tr>
+      <tr class="grand"><td>Total</td><td>${v("total", invoice.total)}</td></tr>
       <tr><td>Balance due</td><td>${escape(transposed)}</td></tr>`;
 }
 
-function html(invoice) {
+export function invoiceHtml(invoice) {
   const omit = invoice.omit ?? [];
   const showTaxId = !omit.includes("supplier_tax_id");
 
@@ -154,9 +166,9 @@ function html(invoice) {
 
 <div class="top">
   <div>
-    <div class="supplier">${escape(invoice.supplier)}</div>
+    <div class="supplier">${v("supplier_name", invoice.supplier)}</div>
     <div class="address">${escape(invoice.address)}</div>
-    ${showTaxId ? `<div class="taxid">VAT no. ${escape(invoice.taxId)}</div>` : ""}
+    ${showTaxId ? `<div class="taxid">VAT no. ${v("supplier_tax_id", invoice.taxId)}</div>` : ""}
   </div>
   <div>
     <h1>Invoice</h1>
@@ -164,11 +176,11 @@ function html(invoice) {
       ${
         invoice.ambiguous
           ? ""
-          : `<div><span class="k">Invoice number</span>${escape(invoice.invoiceNumber)}</div>
-             <div><span class="k">Issue date</span>${escape(invoice.issueDate)}</div>`
+          : `<div><span class="k">Invoice number</span>${v("invoice_number", invoice.invoiceNumber)}</div>
+             <div><span class="k">Issue date</span>${v("issue_date", invoice.issueDate)}</div>`
       }
-      <div><span class="k">Due</span>${escape(invoice.dueDate)}</div>
-      <div><span class="k">Currency</span>${escape(invoice.currency)}</div>
+      <div><span class="k">Due</span>${v("due_date", invoice.dueDate)}</div>
+      <div><span class="k">Currency</span>${v("currency", invoice.currency)}</div>
     </div>
   </div>
 </div>
@@ -225,7 +237,7 @@ export async function renderInvoices(invoices) {
 
     const images = [];
     for (const invoice of invoices) {
-      await page.setContent(html(invoice), { waitUntil: "load" });
+      await page.setContent(invoiceHtml(invoice), { waitUntil: "load" });
       images.push(await page.screenshot({ type: "png" }));
     }
 

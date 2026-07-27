@@ -3,7 +3,7 @@
  * Stored on every extraction row so accuracy before and after a prompt change
  * can be compared rather than blurred together.
  */
-export const PROMPT_VERSION = "2026-07-26.1";
+export const PROMPT_VERSION = "2026-07-27.1";
 
 /*
   specs/extraction.md fixes three rules for this prompt, and each one is here for
@@ -40,8 +40,15 @@ Find the region on the page first and give the box, then read the value out of
 that region. Do not read a value first and locate it afterwards.
 
 The box is {"x0","y0","x1","y1"}, each 0 to 1 as a fraction of page width and
-height, measured from the top left. If you read a value but cannot place it,
-give a null box.
+height, measured from the top left. Draw it tightly around the printed value
+itself, not around the label beside it and not around the block it sits in.
+
+Measure each box against what is actually on this page. Boxes that step down the
+page at a regular interval, or that all share the same width and height, are a
+sign of guessing rather than looking — a supplier name and a total sit in
+different places and are different lengths, so their boxes cannot match. Give a
+box for every value you can see; a null box is only for a value that is not
+printed on this page at all.
 
 About null values, which matter as much as the values you find:
 
@@ -61,9 +68,11 @@ Other rules:
   - subtotal is the amount before tax; total is the final amount payable.
   - Copy supplier_tax_id exactly as printed, including any letter prefix.
 
-Worked example of the shape, for one field:
+Worked example of the shape, for one field. The numbers in it describe one
+particular page and say nothing about yours — take the format from it and
+nothing else:
 
-{"name":"total","box":{"x0":0.62,"y0":0.71,"x1":0.88,"y1":0.75},"value":"1463.20","confidence":0.97}
+{"name":"total","box":{"x0":0.71,"y0":0.44,"x1":0.86,"y1":0.47},"value":"1463.20","confidence":0.97}
 
 Now return the full JSON object with all eight fields.`;
 }

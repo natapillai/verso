@@ -451,3 +451,50 @@ invoice, and partly because a sort code and an account number put a second run o
 digits a short distance from the VAT number. Reading `supplier_tax_id` off a page
 where it is the only long number is not the task; reading it off a page with three
 is.
+
+## Slice 08, the tether is removed
+
+**The model cannot locate a value on the page, and now there is a number for it.**
+`pnpm eval:boxes` renders invoices whose printed values are tagged, so their true
+positions are known exactly, sends them through the real upload and extract path,
+and compares. The result on the seeded corpus: **10% of boxes land on the value,
+mean IoU 0.05**. Claude Sonnet scores 0% on the same pages, so this is not a
+question of model tier — it is that a vision model asked in prose for coordinates
+returns a plausible-looking ladder rather than a measurement. The boxes step down
+the page at a regular interval, are roughly right at the top and drift, and are
+about twice the size of the text they claim to enclose.
+
+Three things had to be fixed before that number could be trusted, and each was
+hiding the next. The prompt's single worked example anchored the model, which
+copied its box dimensions verbatim into all eight fields. Rewriting it to forbid
+that overcorrected — "a null box is better than an invented one" was read as
+permission to stop trying, and every box came back null. And then the harness
+itself was wrong: it read `box` from the fields route, which had never returned
+one, and reported that nothing had been placed when everything had.
+
+**So the tether is gone.** `specs/design.md` calls it the signature element and
+"the one place to spend effort", and its whole argument is that "a highlight box
+alone makes the reviewer's eye search for it. The tether removes that search."
+A line drawn to the wrong place does not remove the search, it adds one, and it
+does so with more confidence than a reviewer has any reason to give it. The same
+spec says to degrade honestly rather than fake — below 1000px the tether was
+already meant to degrade — and this is that rule applied to the case where the
+data underneath it turned out not to exist.
+
+Rejected alternatives. Keeping it and documenting the 10% in the README: a
+limitation a reader has to look up does not stop the screen misleading the person
+using it. Keeping the line and dropping only the tight outline: the line
+terminates at the same wrong coordinates, roughly two text rows out, so it makes
+the same claim more vaguely. Switching models: measured, no better.
+
+**Boxes are still extracted, stored and constrained.** Invariant 6 stays real,
+the check constraints still refuse a box outside zero to one or missing a corner,
+and the harness keeps measuring. Nothing presents them as truth. That leaves the
+door open for the fix that would actually work — a text layer or a detection
+model to locate values against — without pretending the fix is already here.
+
+**`--mark` now has two uses, not three.** The third was the region outline.
+`specs/design.md` fixes the number at three and says to cut a fourth if one
+appears; it does not contemplate losing one. Two is the safe direction to miss in
+— the constraint exists so the one red thing on screen means something, and it
+still does.
