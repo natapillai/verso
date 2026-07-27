@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ACCEPTED_MIME_TYPES } from "@/domain/upload";
 import { downscale } from "./downscale";
 import type { UploadResponse, UploadedDocument } from "@/app/api/upload/route";
@@ -20,6 +21,8 @@ type State =
 
 export function UploadForm() {
   const [state, setState] = useState<State>({ kind: "idle" });
+  const [chosen, setChosen] = useState(0);
+  const router = useRouter();
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,6 +59,10 @@ export function UploadForm() {
       // and answers straight away, reading the page happens after.
       const extractions = await extractAll(documents);
       setState({ kind: "sent", documents, extractions });
+
+      // The queue below is server rendered, so it does not know about anything
+      // uploaded since the page loaded until it is asked again.
+      router.refresh();
     } catch {
       setState({
         kind: "failed",
@@ -67,10 +74,21 @@ export function UploadForm() {
   const documents =
     state.kind === "sent" || state.kind === "extracting" ? state.documents : [];
 
+  const busy = state.kind === "sending" || state.kind === "extracting";
+
   return (
     <>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="file">Invoice files</label>
+      <form
+        onSubmit={onSubmit}
+        className="mt-8 flex flex-wrap items-center gap-4 border border-rule bg-panel px-5 py-4"
+      >
+        {/*
+          The native control renders its own button and "No file chosen" text,
+          which cannot be styled and reads as browser chrome sitting in the middle
+          of the page. The input keeps doing the work and keeps its label; it is
+          just moved out of sight, with the focus ring drawn on the visible
+          control instead so the quality floor in specs/design.md still holds.
+        */}
         <input
           id="file"
           name="file"
@@ -78,30 +96,67 @@ export function UploadForm() {
           multiple
           required
           accept={ACCEPTED_MIME_TYPES.join(",")}
+          onChange={(event) => setChosen(event.currentTarget.files?.length ?? 0)}
+          className="peer sr-only"
         />
+        <label
+          htmlFor="file"
+          className="cursor-pointer border border-rule bg-ground px-3 py-1 text-small text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
+        >
+          Choose invoices
+        </label>
+        <span className="min-w-0 flex-1 truncate text-small text-muted">
+          {chosen === 0
+            ? "PDF or an image of a page"
+            : `${chosen} file${chosen === 1 ? "" : "s"} ready`}
+        </span>
         <button
           type="submit"
-          disabled={state.kind === "sending" || state.kind === "extracting"}
+          disabled={busy}
+          className="border border-ink px-4 py-1 text-small text-ink disabled:border-rule disabled:text-muted"
         >
-          {state.kind === "sending" ? "Uploading" : "Upload"}
+          {state.kind === "sending"
+            ? "Uploading"
+            : state.kind === "extracting"
+              ? "Reading"
+              : "Upload"}
         </button>
       </form>
 
-      {state.kind === "failed" && <p role="alert">{state.message}</p>}
+      {state.kind === "failed" && (
+        <p role="alert" className="mt-3 text-small text-ink">
+          {state.message}
+        </p>
+      )}
 
+      {/*
+        What this upload just did, which is a different question from what is in
+        the queue. Scoped with data-upload-results because the queue below is
+        also a list of documents and a spec asserting on "the list" needs to say
+        which one it means.
+      */}
       {documents.length > 0 && (
-        <ul>
+        <ul data-upload-results className="mt-4 divide-y divide-rule border border-rule bg-panel">
           {documents.map((document) => (
-            <li key={document.id}>
-              <span>{document.filename}</span>{" "}
-              <span>
+            <li key={document.id} className="px-5 py-3">
+              <span className="text-body">{document.filename}</span>{" "}
+              <span className="text-small text-muted">
                 {document.duplicate
                   ? "Already have this one. Opened the existing document."
                   : "Added."}
               </span>{" "}
-              <code>{document.contentHash.slice(0, 12)}</code>{" "}
-              <span>{describeExtraction(state, document.id)}</span>{" "}
-              <a href={`/review/${document.id}`}>Review</a>
+              <code className="font-data text-micro text-muted">
+                {document.contentHash.slice(0, 12)}
+              </code>{" "}
+              <span className="text-small text-muted">
+                {describeExtraction(state, document.id)}
+              </span>{" "}
+              <a
+                href={`/review/${document.id}`}
+                className="text-small underline underline-offset-2"
+              >
+                Review
+              </a>
             </li>
           ))}
         </ul>

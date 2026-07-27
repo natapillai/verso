@@ -3,9 +3,16 @@
 Written against what is in the repository, not against what the specs said would
 be built. Where the two differ there is a section at the end saying so.
 
-## The four paths
+## The five paths
 
-Everything the product does is one of four request paths.
+Everything the product does is one of five request paths.
+
+**The queue.** `/` is a server component over one query in `src/server/queue.ts`,
+listing every document with its batch, its state, and how many of its fields are
+still owed attention. It is what makes a seeded deployment legible: success
+criterion 1 asks that a stranger understand the product within thirty seconds,
+and until this existed the landing page listed only what you had uploaded in the
+current browser session, so seeded documents were in the database and invisible.
 
 **Upload.** The browser redraws any image wider than 1600px through a canvas and
 sends JPEG at quality 0.9 (`src/ui/downscale.ts`), then posts the files to
@@ -28,6 +35,10 @@ threshold, sample rate, image width — and upserts eight `fields`.
 fields and hands them to one client component. Four small routes serve it:
 `confirm`, `correct`, `complete`, and `file`, which streams the blob because the
 store is private and the bytes are not reachable by URL.
+
+A batch is one upload request. That is worth knowing before reading the header:
+uploading files one at a time produces one batch per document, and the batch
+progress the header shows then reads "0 of 1 done" everywhere.
 
 **Accuracy.** `/accuracy` is a server component over four raw SQL queries, below.
 

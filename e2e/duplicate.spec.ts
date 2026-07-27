@@ -22,8 +22,12 @@ test("the same file uploaded twice is one document", async ({ page }) => {
   await page.setInputFiles("#file", { name, mimeType: "image/png", buffer: bytes });
   await page.getByRole("button", { name: "Upload" }).click();
 
+  // Scoped to what this upload did. The queue below it lists every document in
+  // the system, so an unscoped "the list" would count those too.
+  const results = page.locator("[data-upload-results] li");
+
   await expect(page.getByText("Added.")).toBeVisible({ timeout: 60_000 });
-  const firstHash = await page.locator("code").first().innerText();
+  const firstHash = await results.locator("code").first().innerText();
 
   // Upload the very same bytes under a different name.
   await page.setInputFiles("#file", {
@@ -38,6 +42,6 @@ test("the same file uploaded twice is one document", async ({ page }) => {
   ).toBeVisible({ timeout: 60_000 });
 
   // One document, reached by the same content hash.
-  await expect(page.locator("li")).toHaveCount(1);
-  await expect(page.locator("code").first()).toHaveText(firstHash);
+  await expect(results).toHaveCount(1);
+  await expect(results.locator("code").first()).toHaveText(firstHash);
 });

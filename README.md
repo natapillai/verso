@@ -3,7 +3,7 @@
 Invoice extraction with a human in the loop, where the accuracy number is
 measured from the work rather than audited afterwards.
 
-**Live:** `<!-- production URL -->`
+**Live:** https://verso-natarajan-pillais-projects.vercel.app
 
 Named for the left hand page of an open book, which is the layout of the review
 screen.
@@ -45,23 +45,27 @@ Three things make the number trustworthy rather than flattering:
   Tuning them next month cannot retroactively change what counted as accurate
   last month.
 
-## Four things worth looking at
+## Five things worth looking at
 
-1. **The review screen.** Open any document from the queue. A good invoice clears
+1. **The queue.** The landing page lists every document with its batch and what
+   it still wants from you, so the deployment is legible before you have uploaded
+   anything. A row with fields still owed attention carries a two pixel left edge
+   — the same signal a field row uses, because state is weight and never colour.
+2. **The review screen.** Open any document from the queue. A good invoice clears
    in eight Enters and one Cmd Enter, and that path is what the screen is built
    around — the shortcut sheet is on `?`. Confidence is shown as the weight of the
    left edge of each field, never as colour, so the one coloured thing on screen
    means one thing: a value a human changed.
-2. **The tether.** Focus a field and a line connects it to where that value sits
+3. **The tether.** Focus a field and a line connects it to where that value sits
    on the page. It follows the document as you scroll and zoom. It is the reason
    confirming is faster than typing: you are checking a value against a place, not
    hunting for it.
-3. **The accuracy view** at `/accuracy`. Three numbers, each traceable to one SQL
+4. **The accuracy view** at `/accuracy`. Three numbers, each traceable to one SQL
    query in [docs/architecture.md](docs/architecture.md). Note what it refuses to
    do: where nothing has been reviewed it prints `—` rather than `0`, and where
    the sample is too small it declines to judge the threshold instead of raising
    an alarm or an all-clear on a handful of draws.
-4. **Upload the same file twice.** One document, and a message saying so.
+5. **Upload the same file twice.** One document, and a message saying so.
    Identity is the sha256 of the content, so renaming it changes nothing.
 
 ## The numbers, and where they come from
