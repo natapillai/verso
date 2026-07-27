@@ -1,0 +1,39 @@
+name: e2e
+
+# specs/delivery.md: on pull requests only, waits for the Vercel preview then
+# runs two Playwright specs against the live URL.
+#
+# `deployment_status` is how you wait for a preview without polling or a
+# third-party action: Vercel posts the deployment, GitHub fires this, and the URL
+# arrives on the event. The `if` keeps it to successful preview deployments of a
+# pull request, so production merges do not trigger a run against production.
+on:
+  deployment_status:
+
+concurrency:
+  group: e2e-${{ github.event.deployment_status.environment_url }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment != 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test
+        env:
+          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: test-results/
+          retention-days: 7

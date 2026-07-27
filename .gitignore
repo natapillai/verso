@@ -147,6 +147,12 @@ vite.config.ts.timestamp-*
 # Agent tooling and worktrees. Not part of the submission.
 .claude/
 
+# Playwright output. Traces are kept on failure and uploaded by CI as an
+# artifact; they do not belong in the repository.
+test-results/
+playwright-report/
+blob-report/
+
 # Re-exempt after the .env* above, which otherwise overrides the negation on
 # line 71. Later patterns win, and .env.example is documentation, not a secret.
 !.env.example

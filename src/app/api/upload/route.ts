@@ -68,7 +68,23 @@ export async function POST(
     });
   }
 
-  const result = await receiveUpload(files);
+  /*
+    Storage or the database can fail here, and an unhandled throw becomes a 500
+    with an empty body — which tells the caller nothing and reads, to anyone
+    debugging, like the request never arrived. An expired local OIDC token is the
+    common cause and looks exactly like a broken deployment until you read the
+    server log.
+  */
+  let result: Awaited<ReturnType<typeof receiveUpload>>;
+  try {
+    result = await receiveUpload(files);
+  } catch (error) {
+    console.error("upload failed", error);
+    return NextResponse.json(
+      { error: "That upload did not reach storage. Try it again." },
+      { status: 502 },
+    );
+  }
 
   const body: UploadResponse = {
     batchId: result.batchId,
