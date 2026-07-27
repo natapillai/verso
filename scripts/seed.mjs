@@ -30,6 +30,24 @@ const url = argValue("--url") ?? "http://localhost:3000";
 const COMPLETED_THROUGH = 8; // documents 1..8 fully reviewed and completed
 const PARTIAL_THROUGH = 14; // documents 9..14 partly reviewed, left open
 
+/*
+  Three batches rather than twenty.
+
+  A batch is one upload request, so uploading the invoices one at a time made
+  twenty batches of one document — which left the review header reading
+  "Batch 52 · 0 of 1 done" on every screen, and the queue repeating a batch
+  number that told a reader nothing. specs/design.md puts batch progress in the
+  header because it is meant to mean something.
+
+  The boundaries line up with how far review got, so the queue reads as a place
+  of work: one intake cleared, one part way through, one not started.
+*/
+const BATCHES = [
+  { label: "March intake", through: COMPLETED_THROUGH },
+  { label: "April intake", through: PARTIAL_THROUGH },
+  { label: "May intake", through: Infinity },
+];
+
 /** Deliberate disagreements, by document index and field name. */
 const CORRECTIONS = new Map([
   [1, { name: "supplier_tax_id", value: "GB417820395" }],
@@ -56,18 +74,25 @@ async function send(path, init) {
   return { ok: response.ok, status: response.status, body };
 }
 
-async function upload(invoice, index) {
-  const pdf = invoicePdf(invoice);
-  const name = `${invoice.invoiceNumber.toLowerCase()}.pdf`;
-
+/** One request carrying every invoice in a batch, which is what makes it a batch. */
+async function uploadBatch(invoices, label) {
   const form = new FormData();
-  form.append("file", new File([pdf], name, { type: "application/pdf" }));
+  form.append("label", label);
+
+  for (const invoice of invoices) {
+    const pdf = invoicePdf(invoice);
+    const name = `${invoice.invoiceNumber.toLowerCase()}.pdf`;
+    form.append("file", new File([pdf], name, { type: "application/pdf" }));
+  }
 
   const result = await send("/api/upload", { method: "POST", body: form });
-  if (!result.ok) throw new Error(`upload ${index}: ${JSON.stringify(result.body)}`);
+  if (!result.ok) throw new Error(`upload ${label}: ${JSON.stringify(result.body)}`);
 
-  const document = result.body.documents[0];
-  return { id: document.id, duplicate: document.duplicate, filename: name };
+  return result.body.documents.map((document) => ({
+    id: document.id,
+    duplicate: document.duplicate,
+    filename: document.filename,
+  }));
 }
 
 async function extract(documentId) {
@@ -136,23 +161,38 @@ async function main() {
   console.log(`${INVOICES.length} invoices\n`);
 
   const documents = [];
+  let from = 0;
 
-  for (const [index, invoice] of INVOICES.entries()) {
-    const position = index + 1;
-    const uploaded = await upload(invoice, position);
+  for (const batch of BATCHES) {
+    const slice = INVOICES.slice(from, Math.min(batch.through, INVOICES.length));
+    if (slice.length === 0) continue;
 
-    if (uploaded.duplicate) {
-      console.log(`${String(position).padStart(2)}. ${uploaded.filename} already there`);
-      documents.push({ ...uploaded, position });
-      continue;
+    console.log(`${batch.label}, ${slice.length} invoices`);
+    const uploaded = await uploadBatch(slice, batch.label);
+
+    for (const [offset, invoice] of slice.entries()) {
+      const position = from + offset + 1;
+      const document = uploaded[offset];
+
+      if (document.duplicate) {
+        console.log(`${String(position).padStart(2)}. ${document.filename} already there`);
+        documents.push({ ...document, position });
+        continue;
+      }
+
+      const result = await extract(document.id);
+      const note = invoice.ambiguous
+        ? " (hard to read)"
+        : invoice.omit
+          ? " (missing a field)"
+          : "";
+      console.log(
+        `${String(position).padStart(2)}. ${document.filename} extracted by ${result.source}${note}`,
+      );
+      documents.push({ ...document, position });
     }
 
-    const result = await extract(uploaded.id);
-    const note = invoice.ambiguous ? " (hard to read)" : invoice.omit ? " (missing a field)" : "";
-    console.log(
-      `${String(position).padStart(2)}. ${uploaded.filename} extracted by ${result.source}${note}`,
-    );
-    documents.push({ ...uploaded, position });
+    from += slice.length;
   }
 
   console.log("");

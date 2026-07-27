@@ -75,9 +75,18 @@ export async function POST(
     common cause and looks exactly like a broken deployment until you read the
     server log.
   */
+  /*
+    An optional name for the batch, so the review header can say "Batch 3 ·
+    March intake" rather than a bare number. specs/design.md puts it there; until
+    now nothing ever sent one.
+  */
+  const label = form.get("label");
+  const batchLabel =
+    typeof label === "string" && label.trim() !== "" ? label.trim() : undefined;
+
   let result: Awaited<ReturnType<typeof receiveUpload>>;
   try {
-    result = await receiveUpload(files);
+    result = await receiveUpload(files, batchLabel);
   } catch (error) {
     console.error("upload failed", error);
     return NextResponse.json(

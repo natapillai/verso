@@ -365,3 +365,45 @@ to localhost. A config that starts its own server would test a build nobody is
 going to use; `specs/delivery.md` wants these two specs covering "what only breaks
 once the whole thing is assembled", and the assembled thing is the preview
 deployment with its real database and its real blob store.
+
+## Slice 06, the way in
+
+**The landing page is the queue.**
+Until this slice it listed only the documents you had uploaded in the current
+browser session, held in React state and gone on reload. That was fine while the
+only way to see a document was to have just uploaded it, and it quietly defeated
+the point of seeding: twenty demo documents sat in the database and a stranger
+opening the deployed URL saw an empty form. Success criterion 1 in
+`specs/product.md` is that a stranger understands the product within thirty
+seconds without a walkthrough, and it was not met by a system that showed them
+nothing. The upload result list is still there, because "what did this upload just
+do" is a different question from "what is there to review", and answering the
+second in place of the first would lose the duplicate message.
+
+**Queue state is carried by the left edge, exactly as a field row is.**
+A document with fields still owed attention gets a two pixel `--ink` edge; every
+other document gets none. `--mark` is not used on this page at all. It has three
+places in this product and a queue is not one of them, so the corrected count on a
+row is muted like every other piece of supporting text.
+
+**A batch is one upload request, and the seed now uses three of them.**
+This was already true and had never been visible. Uploading the twenty seeded
+invoices one at a time made twenty batches of one document, so the review header
+read "Batch 52 · 0 of 1 done" on every screen and the batch number in the queue
+told a reader nothing. `specs/design.md` draws that header as "Batch 14 · Acme
+Supplies · 6 of 22 done", which only means something if a batch holds more than
+one document. The seed now sends three labelled batches whose boundaries line up
+with how far review got, so the queue reads as a place of work rather than a list:
+one intake cleared, one part way through, one not started.
+
+**The upload route accepts an optional label.**
+`batches.label` has existed since slice 01 and nothing had ever written to it. One
+optional form field, ignored when absent, rather than a second endpoint.
+
+**The file input is moved out of sight rather than styled.**
+`::file-selector-button` can be styled but the "No file chosen" text beside it
+cannot, and it renders as browser chrome in the middle of the page. The input
+keeps its id, its name, its `required` and its label and does all the work; a
+label styled as a button sits in its place, and the focus ring is drawn on that
+label through `peer-focus-visible` so the quality floor still holds. Playwright's
+`setInputFiles` works on it unchanged, which is what kept both specs passing.
